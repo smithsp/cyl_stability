@@ -1,0 +1,15 @@
+&control_params
+min_N = 101,
+max_N = 101,
+linconst = .false.,
+spline=.true.,
+hermite=.false.,
+verbose=.false.,
+slow_evals=.false., 
+slow_evecs=.false., 
+alfven_evecs=.false.,
+psi_deriv=.true.,
+chi_deriv=.true.,
+homo_plasma = .true.,
+inhomo = .false.
+/
