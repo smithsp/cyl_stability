@@ -33,7 +33,7 @@ for j in range(min(nphi,len(gamma)-1,1)): #nphi
   fac = EVs[j,-1]/ygrid[-1]
   g = Gnuplot.Gnuplot(persist=1)
   g.plot(Gnuplot.Data(x,y,with='lines',title='Exact'),Gnuplot.Data(xgrid,EVs[j,:]/fac,with='linespoints',title='Computed'),title='Linear Elements')
-  #g.hardcopy('linear_const_ev_%d.eps'%j)
+  #g.hardcopy('linear/linear_const_ev_%d.eps'%j)
 f.close()
 
 f = file('spline_alfven_EVs.txt')
@@ -71,7 +71,7 @@ for k in range(20):
     d2 = Gnuplot.Data(xgrid,EVs/fac,title='Computed at grid points',with='points')
     
     g.plot(d2,d1,d3,title='Inhomogeneous plasma: Alfven wave using %d cubic Bspline elements'%(ngrid+1))
-    g.hardcopy('spline_alfven_ev_%d.eps'%(ngrid))
+    g.hardcopy('bspline/spline_alfven_ev_%d.eps'%(ngrid))
   except:
     f.close()
     import sys

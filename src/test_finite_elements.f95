@@ -96,7 +96,7 @@ PROGRAM test_finite_elements
   WRITE (*,'(a,4g)')   'xi(N+1)%dx = ',xi(N+1)%dx,'xi(N+1)%A = ', xi(N+1)%A, 'xi(N+1)%B = ', xi(N+1)%B,&
   &'xi(N+1)%C = ', xi(N+1)%C, 'xi(N+1)%D = ', xi(N+1)%D
   
-  OPEN (1, status='replace',file='finite_element_values_Lend0.txt')
+  OPEN (1, status='replace',file='finite_element_values.txt')
   WRITE (1,'(22a20)') &
   & '#x value', 'Left constant', 'Right constant',&
   & 'Left Linear', 'Middle Linear', 'Right Linear',&

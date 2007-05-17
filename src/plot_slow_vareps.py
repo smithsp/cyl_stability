@@ -25,4 +25,4 @@ for k in range(20):
     break
     #print eps,max_slow_inf
 g.replot(Gnuplot.Data(eps[1:],max_slow_inf[1:],title='max of continuum',with='lines 2'))
-g.hardcopy('spline_slow_vareps.eps')
+g.hardcopy('bspline/spline_slow_vareps.eps')

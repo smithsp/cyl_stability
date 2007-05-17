@@ -27,12 +27,12 @@ PROGRAM cyl
   chi_deriv = .true.
   homo_plasma = .true.
   inhomo = .false.
-  OPEN(1,file='control_params.in',status='old',form='formatted')
+  OPEN(1,file='src/control_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
   WRITE(*,nml=control_params) 
   IF(homo_plasma) THEN
-    OPEN(1,file='homogeneous.in',status='old',form='formatted')
+    OPEN(1,file='src/homogeneous.in',status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
     WRITE (*,nml=cyl_params)
@@ -49,7 +49,7 @@ PROGRAM cyl
       slow_evals = .false.
       CALL linear_const()
     ENDIF
-    OPEN(1,file='control_params.in',status='old',form='formatted')
+    OPEN(1,file='src/control_params.in',status='old',form='formatted')
     READ(1,nml=control_params)
     CLOSE(1)
     WRITE(*,nml=control_params) 
@@ -68,7 +68,7 @@ PROGRAM cyl
     ENDIF
   ENDIF
   IF(inhomo) THEN
-    OPEN(1,file='inhomogeneous.in',status='old',form='formatted')
+    OPEN(1,file='src/inhomogeneous.in',status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
     WRITE (*,nml=cyl_params)

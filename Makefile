@@ -11,24 +11,24 @@ OUT=model.exe
 TESTFE=test_finite_elements
 OBJFE=${CYLFUNCS}.o ${FEMOD}.o local.o 
 
-local: ${LOCAL}.f95
+local: src/${LOCAL}.f95
 	${FC} ${FCOPTS} -c $?
-sort: sort_module.f95
+sort: src/sort_module.f95
 	${FC} ${FCOPTS} -c $?
-finite_elements: ${FEMOD}.f95
+finite_element: src/${FEMOD}.f95
 	${FC} ${FCOPTS} -c $?
-cyl_funcs: ${CYLFUNCS}.f95
+cyl_funcs: src/${CYLFUNCS}.f95
 	${FC} ${FCOPTS} -c $?
-cyl: cyl.f95
+cyl: src/cyl.f95
 	make local
 	make sort
-	make finite_elements
+	make finite_element
 	make cyl_funcs
-	${FC} ${FCOPTS} cyl.f95 ${OBJFE} sort_module.o ${LIBDIR} ${LIBS} -o cyl.exe
+	${FC} ${FCOPTS} src/cyl.f95 ${OBJFE} sort_module.o ${LIBDIR} ${LIBS} -o cyl.exe
 	make clean
-testfe: ${TESTFE}.f95
+testfe: src/${TESTFE}.f95
 	make local
-	make finite_elements
+	make finite_element
 	make cyl_funcs
 	${FC} ${FCOPTS}  $? ${OBJFE} ${LIBDIR} ${LIBS} -o testfe.exe
 	make clean
