@@ -327,12 +327,14 @@ CONTAINS
     !CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.,deriv=psi_deriv)
     !CALL init(psi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),deriv=psi_deriv,RendZero=.true.)    
     !CALL init(psi(2),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv)
-    CALL init(psi(0),grid(1),p3=grid(2),deriv=psi_deriv,LendZero=.true.)
-    CALL init(psi(1),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv,LendZero=.true.)
-    CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=psi_deriv,LendZero=.true.)
-    CALL init(psi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=psi_deriv)
-    CALL init(psi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=psi_deriv,RendZero=.true.)!)
-    CALL init(psi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=psi_deriv,RendZero=.true.)
+    !CALL init(psi(0),grid(1),p3=grid(2),deriv=psi_deriv,LendZero=.true.)
+    !CALL init(psi(1),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv,LendZero=.true.)
+    !CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=psi_deriv,LendZero=.true.)
+    !CALL init(psi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=psi_deriv)
+    !CALL init(psi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=psi_deriv,RendZero=.true.)!)
+    !CALL init(psi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=psi_deriv,RendZero=.true.)
+    psi = phi
+    psi%deriv = psi_deriv
     !CALL init(psi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
     !CALL init(chi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),&
     !& p3=grid(1),p4=grid(2),deriv=chi_deriv)
@@ -342,12 +344,14 @@ CONTAINS
     !CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.,deriv=chi_deriv)
     !CALL init(chi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),deriv=chi_deriv,RendZero=.true.)    
     !CALL init(chi(2),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv)
-    CALL init(chi(0),grid(1),p3=grid(2),deriv=chi_deriv,LendZero=.true.)
-    CALL init(chi(1),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv,LendZero=.true.)
-    CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=chi_deriv,LendZero=.true.)
-    CALL init(chi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=chi_deriv)
-    CALL init(chi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=chi_deriv,RendZero=.true.)
-    CALL init(chi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=chi_deriv,RendZero=.true.)
+    !CALL init(chi(0),grid(1),p3=grid(2),deriv=chi_deriv,LendZero=.true.)
+    !CALL init(chi(1),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv,LendZero=.true.)
+    !CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=chi_deriv,LendZero=.true.)
+    !CALL init(chi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=chi_deriv)
+    !CALL init(chi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=chi_deriv,RendZero=.true.)
+    !CALL init(chi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=chi_deriv,RendZero=.true.)
+    chi=psi
+    chi%deriv = chi_deriv
     !CALL init(chi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
 
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver

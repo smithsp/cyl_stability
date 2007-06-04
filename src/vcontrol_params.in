@@ -1,15 +1,15 @@
 &control_params
 min_N = 21,
 max_N = 21,
-linconst = .true.,
+linconst = .false.,
 spline=.true.,
 hermite=.false.,
-verbose=.false.,
-slow_evals=.false., 
+verbose=.true.,
+slow_evals=.true., 
 slow_evecs=.true., 
 alfven_evecs=.false.,
-psi_deriv=.true.,
-chi_deriv=.true.,
+phi2_deriv=.true.,
+phi3_deriv=.true.,
 homo_plasma = .true.,
 inhomo = .false.
 /
