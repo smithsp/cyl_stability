@@ -7,7 +7,7 @@ g._clear_queue()
 g('set logscale xy')
 g.xlabel('epsilon')
 g.ylabel('({/Symbol w}^2-{/Symbol w}_{/Symbol \245}^2)/{/Symbol w}_{/Symbol \245}^2')
-g.title('Illustration of slow discrete->continuum transition')
+g.title('Illustration of slow discrete->continuum transition with Appert coords in Guazzotto approach')
 for k in range(20):
   try:
     eps.append(float(f.readline()))

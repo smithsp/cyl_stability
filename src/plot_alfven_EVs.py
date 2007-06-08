@@ -32,7 +32,7 @@ for j in range(min(nphi,len(gamma)-1,1)): #nphi
     ygrid[i] = sf.bessel_J1(xgrid[i]*gamma[j])[0]
   fac = EVs[j,-1]/ygrid[-1]
   g = Gnuplot.Gnuplot(persist=1)
-  g.plot(Gnuplot.Data(x,y,with='lines',title='Exact'),Gnuplot.Data(xgrid,EVs[j,:]/fac,with='linespoints',title='Computed'),title='Linear Elements')
+  #g.plot(Gnuplot.Data(x,y,with='lines',title='Exact'),Gnuplot.Data(xgrid,EVs[j,:]/fac,with='linespoints',title='Computed'),title='Linear Elements')
   #g.hardcopy('linear/linear_const_ev_%d.eps'%j)
 f.close()
 

@@ -3,18 +3,19 @@ PROGRAM cyl
   USE vcyl_matrix_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: N, min_N, max_N, ephi2
-  LOGICAL :: linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo
+  INTEGER :: N, min_N, max_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0
+  LOGICAL :: linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
-  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf
+  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2
   CHARACTER(LEN=30) :: FMT, FMTR
   INTEGER :: NN
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
   
   NAMELIST /control_params/ min_N, max_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,&
-  & phi2_deriv, phi3_deriv, homo_plasma, inhomo
+  & phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, azi_flow
   NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp
+  CALL cpu_time(t1)
   min_N = 5
   max_N = 6
   linconst = .true.
@@ -27,6 +28,10 @@ PROGRAM cyl
   phi3_deriv = .true.
   homo_plasma = .true.
   inhomo = .false.
+  axial_flow = .false.
+  max_Bt0 = 0
+  delta_Bt0 = 0
+  Bt0 = 0
   OPEN(1,file='src/vcontrol_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
@@ -53,18 +58,42 @@ PROGRAM cyl
     READ(1,nml=control_params)
     CLOSE(1)
     WRITE(*,nml=control_params) 
-    OPEN(2,file='spline_slow_evals.txt',status='replace')
-    DO N = min_N,max_N
-      IF (spline) THEN
-        WRITE (*,*) 'N = ', N
-        WRITE (*,*) 'With bspline elements.'
-        CALL bspline_deriv()
-      ENDIF
-    ENDDO
-    CLOSE(2)
+    IF(slow_evals) THEN
+      OPEN(2,file='spline_slow_evals.txt',status='replace')
+      DO N = min_N,max_N
+        IF (spline) THEN
+          WRITE (*,*) 'N = ', N
+          WRITE (*,*) 'With bspline elements.'
+          CALL bspline_deriv()
+        ENDIF
+      ENDDO
+      CLOSE(2)
+    ENDIF
     IF (spline.and.slow_evecs) THEN
       slow_evals = .false.
       CALL bspline_deriv()
+    ENDIF
+    IF (axial_flow) THEN
+      N = min_N
+      OPEN(4,file='spline_var_Vz0.txt',status='replace')
+      DO Vz0 = 0,max_Vz0, delta_Vz0
+        IF (spline) THEN
+          WRITE(*,'(a,g,a)') 'With ',N,'bspline elements'
+          CALL bspline_deriv()
+        ENDIF
+      ENDDO
+      CLOSE(4)
+    ENDIF
+    IF (azi_flow) THEN
+      N = min_N
+      Vz0 = 0
+      OPEN(4,file='spline_var_Bt0.txt',status='replace')
+      DO Bt0 = 0, max_Bt0, delta_Bt0
+        IF (spline) THEN
+          WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
+          CALL bspline_deriv()
+        ENDIF
+      ENDDO
     ENDIF
   ENDIF
   IF(inhomo) THEN
@@ -114,6 +143,8 @@ PROGRAM cyl
     !CALL hermite_elements()
   ENDIF
   WRITE (*,*) 'Alfven range (approx):', alfven_range((/0.,ar/))
+  CALL cpu_time(t2)
+  WRITE (0,*) 'Time taken: ', t2-t1, ' seconds.'
 CONTAINS
   SUBROUTINE linear_const()
     IMPLICIT NONE
@@ -221,7 +252,7 @@ CONTAINS
   SUBROUTINE bspline_deriv()
     IMPLICIT NONE
     REAL(r8), DIMENSION(N):: grid!, slow!, slow_sort
-    TYPE(bspline), DIMENSION(3:N) :: phi1, phi2, phi3, phi4, phi5, phi6
+    TYPE(bspline), DIMENSION(0:N) :: phi1, phi2, phi3, phi4, phi5, phi6
     REAL(r8), DIMENSION(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6),&
     & size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)):: A, B, C, D, VR
     REAL(r8), DIMENSION(1,size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)) :: VL
@@ -273,22 +304,23 @@ CONTAINS
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi1(j),A1)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi1(j),A11)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi4(i),phi1(j),B11)
       ENDDO
       l = 2
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi2(j),A12)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi2(j),phi4(i),B12)
-      ENDDO
-      l = 3
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi3(j),phi4(i),B13)
       ENDDO
       l = 4
       DO j=i,min(i+3,upper(l))
-        temp = int_func(phi4(j),phi4(i),A1)
+        temp = int_func(phi4(j),phi4(i),A11)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
+      ENDDO
+      l = 5
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(j),phi4(i),A12)
       ENDDO
     ENDDO
     k = 2
@@ -296,16 +328,21 @@ CONTAINS
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi1(j),A12)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi1(j),B12)
       ENDDO
       l = 2
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),A1)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),B11)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),A22)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),B22)
+      ENDDO
+      l = 4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+5)
       ENDDO
       l = 5
       DO j=i,min(i+3,upper(l))
-        temp = int_func(phi5(i),phi5(j),A1)
+        temp = int_func(phi5(i),phi5(j),A22)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
       ENDDO
@@ -313,18 +350,14 @@ CONTAINS
     k = 3
     m = k+3
     DO i=lower(m),upper(m)
-      l = 1
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi6(i),phi1(j),B13)
-      ENDDO
       l = 3
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi6(i),phi3(j),A1)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi6(i),phi3(j),B11)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi6(i),phi3(j),A33)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi6(i),phi3(j),B33)
       ENDDO
       l = 6
       DO j=i,min(i+3,upper(l))
-        temp = int_func(phi6(i),phi6(j),A1)
+        temp = int_func(phi6(i),phi6(j),A33)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
       ENDDO
@@ -335,9 +368,11 @@ CONTAINS
       l = 1
       DO j=i,min(i+3,upper(l))
         tempA = int_func(phi1(i),phi1(j),B41a,deriv1=.true.,deriv2=.true.)
-        tempB = int_func(phi1(i),phi1(j),B41b,deriv1=.true.,deriv2=.true.)+int_func(phi1(i),phi1(j),B41b,deriv1=.true.)
+        tempB = int_func(phi1(i),phi1(j),B41b,deriv2=.true.)+int_func(phi1(i),phi1(j),B41b,deriv1=.true.)
         tempC = int_func(phi1(i),phi1(j),B41c)
-        temp = tempA+tempB+tempC-(1./2./ar**2*Bmag(ar)**2*(val(phi1(i),ar)*val_prime(phi1(j),ar)+val_prime(phi1(i),ar)*val(phi1(j),ar))+Bt(ar)**2/ar**3*val(phi1(i),ar)*val(phi1(j),ar))
+        temp = tempA+tempB+tempC-&
+        & 1./2.*( 2*Bz(ar)*Bz(ar)*kz/mt*val(phi1(i),ar)*val(phi1(j),ar) + &
+        &         Bmag(ar)**2*(val(phi1(i),ar)*val_prime(phi1(j),ar)+val(phi1(j),ar)*val_prime(phi1(i),ar)))
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
       ENDDO
@@ -346,26 +381,24 @@ CONTAINS
         tempB = int_func(phi1(i),phi2(j),B42b,deriv1=.true.)
         tempC = int_func(phi1(i),phi2(j),B42c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = &
-        & tempB+tempC+(1./2./ar**2*Bmag(ar)*val(phi1(i),ar)*val(phi2(j),ar)*(mt*Bz(ar)/ar-kz*Bt(ar)))
+        & tempB+tempC-1./2.*val(phi1(i),ar)*val(phi2(j),ar)*(Bz(ar)**2-ar*Bz(ar)*Bt(ar)*kz/mt)
       ENDDO
       l = 3
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         tempB = int_func(phi1(i),phi3(j),B43b,deriv1=.true.)
         tempC = int_func(phi1(i),phi3(j),B43c)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB + tempC - &
+        & 1./2.*val(phi1(i),ar)*val(phi3(j),ar)*(Bt(ar)**2-Bz(ar)*Bt(ar)*mt/(kz*ar))
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi1(i),phi4(j),A1)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi1(i),phi4(j),B11)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi1(i),phi4(j),A11)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+m,6*(i-lower(m))+m)
       ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+2,6*(i-lower(m))+1)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+2,6*(i-lower(m))+1)
-      ENDDO
-      l = 6
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+1)
       ENDDO
     ENDDO
     k = 5
@@ -387,11 +420,12 @@ CONTAINS
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+1,6*(i-lower(m))+2)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+2)
       ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi2(i),phi5(j),A1)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+2,6*(i-lower(m))+2)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+2,6*(i-lower(m))+2)
       ENDDO
     ENDDO
@@ -412,13 +446,9 @@ CONTAINS
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = tempB
       ENDDO
-      l = 4
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+3)
-      ENDDO
       l = 6
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi3(i),phi6(j),A1)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+3,6*(i-lower(m))+3)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
       ENDDO
     ENDDO
@@ -440,26 +470,41 @@ CONTAINS
     !WRITE (*,'(g)') ALPHAR
     !WRITE (*,*) 'BETA ='
     !WRITE (*,'(g)') BETA
-    !WRITE (*,*) 'real(LAMBDA) = '
-    !WRITE (*,'(g)') (ALPHAR)/BETA
+    IF(axial_flow) THEN
+      WRITE (4,'(g)') Vz0
+      WRITE (4,'(g)') kz
+      WRITE (4,'(i)') NN
+      WRITE (4,'(g)') sort(ALPHAR/BETA,rev=.true.)
+      WRITE (4,*) ''
+    ENDIF
+    IF(azi_flow) THEN
+      WRITE (4,'(g)') Bt0
+      WRITE (4,'(g)') rho0
+      WRITE (4,'(i)') mt
+      WRITE (4,'(g)') ar
+      WRITE (4,'(i)') NN
+      WRITE (4,'(g)') sort(ALPHAR/BETA,rev=.true.)
+      WRITE (4,'(g)') sort(ALPHAI/BETA,rev=.true.)
+      WRITE (4,*) ''
+    ENDIF
     !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
     slow_inf = minval(slow_inf_range(grid))
     !WRITE (*,*) '(real(LAMBDA) - slow_inf)/slow_inf= '
-    lambda = sort(ALPHAR/BETA,rev=.true.)
+    lambda = ALPHAR**2/BETA**2
     IF(.not.homo) THEN
       WRITE (*,*) 'alfven range = ', alfven_range(grid)
       WRITE (*,*) 'slow_inf range = ', slow_inf_range(grid)
       WRITE (*,*) 'Lambda = '
-      WRITE (*,'(g)') lambda
+      WRITE (*,'(g)') sort(lambda,rev=.true.)
     ENDIF
-    slow = sort(((ALPHAR)/BETA-slow_inf)/slow_inf,rev=.true.,inds=inds)
+    slow = sort(((ALPHAR)**2/BETA**2-slow_inf)/slow_inf,rev=.true.,inds=inds)
     IF (slow_evals) THEN
-      IF(homo) WRITE(2,FMTR) slow(NN-nphi1+1:NN)
+      IF(homo) WRITE(2,FMTR) slow(NN-2*nphi1+1:NN:2)
       IF(inhomo) THEN
         WRITE (2,'(g)') eps
         WRITE (2,'(g)') (maxval(slow_inf_range(grid))-slow_inf)/slow_inf
         WRITE (2,'(i)') nphi1
-        WRITE (2,'(g)') slow(NN-nphi1+1:NN)
+        WRITE (2,'(g)') slow(NN-2*nphi1+1:NN:2)
         WRITE (2,*) ''
       ENDIF
     ENDIF
@@ -467,7 +512,7 @@ CONTAINS
     DO i=1,NN
       !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
 
-      WRITE (*,'(g,a,g)')  slow(i), ' = ', (ALPHAR(inds(i))/BETA(inds(i))-slow_inf)/slow_inf
+      WRITE (*,'(g,a,g)')  slow(i), ' = ', (ALPHAR(inds(i))**2/BETA(inds(i))**2-slow_inf)/slow_inf
     ENDDO
     WRITE (*,*) ' '
     !WRITE (*,*) 'k^2 Bz(grid)^2/rho(grid) = '
@@ -483,10 +528,10 @@ CONTAINS
         DO i=1,size(xgrid)
           WRITE (1,'(g)') xgrid(i)
         ENDDO
-        DO j=size(phi1)-1,0,-1
+        DO j=2*size(phi1)-1,0,-2
           WRITE(1,*) ''  
           DO i=1,size(xgrid)
-            WRITE (1,'(g)') sum(VR(3::3,inds(NN-j))*val(phi3,xgrid(i)))
+            WRITE (1,'(g)') sum(VR(3::6,inds(NN-j))*val(phi3,xgrid(i)))
           ENDDO    
         ENDDO
         CLOSE(1)   
@@ -494,9 +539,14 @@ CONTAINS
     ENDIF
     
     IF(alfven_evecs) THEN
-      ind = inds(nphi1+nphi1/2)!minloc(abs(ALPHAR/BETA-0.513e-04))
-      WRITE (*,*) 'Lambda(',ind(1),') = ',ALPHAR(ind(1))/BETA(ind(1)) 
-      WRITE (*,'(g)') (VR(2::3,ind(1)))
+      !WRITE (*,'(a20,a20)') 'Lambda','Singular r'
+      !DO i=1,2*nphi1
+        !WRITE (*,'(g20,g20)') lambda(2*(nphi1+1)+i)
+      !ENDDO
+      !WRITE (*,
+      ind = inds(2*(nphi1+1)+nphi1+1)!minloc(abs(ALPHAR/BETA-0.513e-04))
+      WRITE (*,*) 'Lambda(',ind(1),') = ',ALPHAR(ind(1))**2/BETA(ind(1))**2
+      WRITE (*,'(g)') (VR(2::6,ind(1)))
       WRITE (3,'(i)') size(xgrid)
       WRITE (3,'(i)') 1
       DO i=1,size(xgrid)
@@ -504,7 +554,7 @@ CONTAINS
       ENDDO
       WRITE(3,*) ''  
       DO i=1,size(xgrid)
-        WRITE (3,'(g)') sum(VR(2::3,ind(1))*val(phi2,xgrid(i)))
+        WRITE (3,'(g)') sum(VR(2::6,ind(1))*val(phi2,xgrid(i)))
       ENDDO 
       WRITE (3,*) ''
       WRITE (3,'(i)') size(grid)
@@ -515,9 +565,10 @@ CONTAINS
       ENDDO
       WRITE(3,*) ''  
       DO i=1,size(grid)
-        WRITE (3,'(g)') sum(VR(2::3,ind(1))*val(phi2,grid(i)))
+        WRITE (3,'(g)') sum(VR(2::6,ind(1))*val(phi2,grid(i)))
       ENDDO 
       WRITE (3,*) ''
+      
     ENDIF
     !WRITE (*,*) 'xi_r(ar) = ', xi_1, 'xi_theta(ar) = ', (0,1)/mt*(xi_1-ar*xi_2), 'xi_z(ar) = ', -(0,1)*xi_3/kz
     !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf

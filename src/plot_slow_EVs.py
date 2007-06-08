@@ -59,8 +59,8 @@ for j in range(min(nphi,len(gamma)-1)):#nphi,2):
     ygrid[i] = sf.bessel_J1(xgrid[i]*gamma[j])[0]
   fac =(EVs[j,-1]/ygrid[-1])
   g = Gnuplot.Gnuplot(persist=1)
-  g.plot(Gnuplot.Data(x,y,with='lines',title='Exact'),Gnuplot.Data(xgrid,EVs[j,:]/fac,title='Computed'),title='Spline Elements')
-  #g.hardcopy('bspline/spline_ev_%d.eps'%j)
+  g.plot(Gnuplot.Data(x,y,with='lines',title='Exact'),Gnuplot.Data(xgrid,EVs[j,:]/fac,title='Computed'),title='Spline Elements with Appert coords in Guazzotto approach')
+  g.hardcopy('bspline/v_spline_EV_%d.eps'%j)
 f.close()
 import sys
 sys.exit()

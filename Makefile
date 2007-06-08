@@ -1,5 +1,5 @@
 FC=/usr/pppl/lff95/6.20c/bin/lf95 
-FCOPTS= --chk --dbl    
+FCOPTS= --dbl    
 LAPACK=/usr/pppl/lff95/6.20c/lapack-3.0
 LOCAL=local
 FEMOD=finite_elements_module
