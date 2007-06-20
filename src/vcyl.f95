@@ -3,18 +3,20 @@ PROGRAM cyl
   USE vcyl_matrix_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: N, min_N, max_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0
+  INTEGER :: N, min_N, max_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, Bt_ind, k_ind, delta_k, max_k
   LOGICAL :: linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
-  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2
+  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k
   CHARACTER(LEN=30) :: FMT, FMTR
-  INTEGER :: NN
+  INTEGER :: NN, ifail
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
+  !ML_EXTERNAL gsl_sf_bessel_J0
   
   NAMELIST /control_params/ min_N, max_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,&
-  & phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, azi_flow
+  & phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, azi_flow, log_Bt0
   NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp
+  NAMELIST /azi_flow_params/ Bt0, max_Bt0, delta_Bt0, log_Bt0, max_k, delta_k, log_k
   CALL cpu_time(t1)
   min_N = 5
   max_N = 6
@@ -32,6 +34,9 @@ PROGRAM cyl
   max_Bt0 = 0
   delta_Bt0 = 0
   Bt0 = 0
+  ifail = 1
+  TT = s17aef(1.2D0,ifail)
+  WRITE (*,*) 'bessel_j0(1.2) = ', TT, ifail
   OPEN(1,file='src/vcontrol_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
@@ -41,15 +46,15 @@ PROGRAM cyl
     READ(1,nml=cyl_params)
     CLOSE(1)
     WRITE (*,nml=cyl_params)
-    OPEN(2,file='lin_slow_evals.txt',status='replace')
     DO N = min_N,max_N
       IF (linconst) THEN
+        OPEN(2,file='lin_slow_evals.txt',status='replace')
         WRITE (*,*) 'N = ', N
         WRITE (*,*) 'With linear and constant elements.'
         CALL linear_const()
+        CLOSE(2)
       ENDIF
     ENDDO
-    CLOSE(2)
     IF (linconst.and.slow_evecs) THEN
       slow_evals = .false.
       CALL linear_const()
@@ -78,7 +83,7 @@ PROGRAM cyl
       OPEN(4,file='spline_var_Vz0.txt',status='replace')
       DO Vz0 = 0,max_Vz0, delta_Vz0
         IF (spline) THEN
-          WRITE(*,'(a,g,a)') 'With ',N,'bspline elements'
+          WRITE(*,'(a,i,a)') 'With ',N,'bspline elements'
           CALL bspline_deriv()
         ENDIF
       ENDDO
@@ -87,13 +92,31 @@ PROGRAM cyl
     IF (azi_flow) THEN
       N = min_N
       Vz0 = 0
-      OPEN(4,file='spline_var_Bt0.txt',status='replace')
-      DO Bt0 = 0, max_Bt0, delta_Bt0
+      OPEN(1,file='src/azi_flow.in',status='old',form='formatted')
+      READ(1,nml=azi_flow_params)
+      CLOSE(1)
+      OPEN(7,file='spline_var_Bt0.txt',status='replace')
+      DO Bt_ind = 0, max_Bt0, delta_Bt0
+        Bt0 = Bt_ind*10**log_Bt0
         IF (spline) THEN
           WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
           CALL bspline_deriv()
         ENDIF
       ENDDO
+      CLOSE(7)
+      OPEN(1,file='src/azi_flow.in',status='old',form='formatted')
+      READ(1,nml=azi_flow_params)
+      CLOSE(1)
+      OPEN(7,file='spline_var_k.txt',status='replace')
+      DO k_ind = delta_k, max_k, delta_k
+        kz = k_ind*10**log_k
+        IF (spline) THEN
+          WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
+          CALL bspline_deriv()
+        ENDIF
+      ENDDO
+      CLOSE(7)
+      
     ENDIF
   ENDIF
   IF(inhomo) THEN
@@ -478,14 +501,15 @@ CONTAINS
       WRITE (4,*) ''
     ENDIF
     IF(azi_flow) THEN
-      WRITE (4,'(g)') Bt0
-      WRITE (4,'(g)') rho0
-      WRITE (4,'(i)') mt
-      WRITE (4,'(g)') ar
-      WRITE (4,'(i)') NN
-      WRITE (4,'(g)') sort(ALPHAR/BETA,rev=.true.)
-      WRITE (4,'(g)') sort(ALPHAI/BETA,rev=.true.)
-      WRITE (4,*) ''
+      WRITE (7,'(g)') Bt0
+      WRITE (7,'(g)') rho0
+      WRITE (7,'(g)') kz
+      WRITE (7,'(i)') mt
+      WRITE (7,'(g)') ar
+      WRITE (7,'(i)') NN
+      WRITE (7,'(g)') sort(ALPHAR/BETA,rev=.true.)
+      WRITE (7,'(g)') sort(ALPHAI/BETA,rev=.true.)
+      WRITE (7,*) ''
     ENDIF
     !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
     slow_inf = minval(slow_inf_range(grid))

@@ -1,4 +1,4 @@
-set term postscript eps enhanced color
+set term postscript eps enhanced color solid
 set output "finite_elements/left_splines.eps"
 set key outside below
 #set yrange [-.1:.9]

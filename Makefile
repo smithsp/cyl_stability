@@ -1,47 +1,47 @@
 FC=/usr/pppl/lff95/6.20c/bin/lf95 
-FCOPTS= --dbl    
+FCOPTS=--dbl
 LAPACK=/usr/pppl/lff95/6.20c/lapack-3.0
 LOCAL=local
 FEMOD=finite_elements_module
 CYLFUNCS=cyl_funcs_module
 VCYLMAT=vcyl_matrix_module
 OBJ=${LOCAL}.o ${SPLINE}.o ${MODEL}.o model_funcs.o
-LIBDIR=-L ${LAPACK}
-LIBS= -llapack -lblas
+LIBDIR=-L ${LAPACK} 
+LIBS= -llapack -lblas 
+NAG_LIBDIR = -L${NAG_ROOT}
+NAG_LIBS = -lnag 
+MODDIR = --mod ${NAG_ROOT}/nag_mod_dir
 OUT=model.exe
 TESTFE=test_finite_elements
-OBJFE=${CYLFUNCS}.o ${FEMOD}.o local.o 
-VOBJFE=${VCYLMAT}.o ${FEMOD}.o local.o 
+OBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o cyl.o
+VOBJ=local.o sort_module.o ${FEMOD}.o ${VCYLMAT}.o vcyl.o
+SRCDIR=src
 
-local: src/${LOCAL}.f95
+local.o: ${SRCDIR}/${LOCAL}.f95
+	${FC} $? ${FCOPTS} -c 
+sort_module.o: ${SRCDIR}/sort_module.f95
+	${FC} $? ${FCOPTS} -c 
+${FEMOD}.o: ${SRCDIR}/${FEMOD}.f95
+	${FC} $? ${FCOPTS} -c
+${CYLFUNCS}.o: ${SRCDIR}/${CYLFUNCS}.f95
+	${FC} $? ${FCOPTS} -c
+${VCYLMAT}.o: ${SRCDIR}/${VCYLMAT}.f95
+	${FC} $? ${FCOPTS} -c
+${TESTFE}.o: ${SRCDIR}/${TESTFE}.f95
 	${FC} ${FCOPTS} -c $?
-sort: src/sort_module.f95
+vcyl.o: ${SRCDIR}/vcyl.f95
+	${FC} $? ${FCOPTS} -c
+cyl.o:  ${SRCDIR}/cyl.f95
+	${FC} $? ${FCOPTS} -c
+test_nag.o: ${SRCDIR}/test_nag.f95
 	${FC} ${FCOPTS} -c $?
-finite_element: src/${FEMOD}.f95
-	${FC} ${FCOPTS} -c $?
-cyl_funcs: src/${CYLFUNCS}.f95
-	${FC} ${FCOPTS} -c $?
-vcyl_mat: src/${VCYLMAT}.f95
-	${FC} ${FCOPTS} -c $?
-cyl: src/cyl.f95
-	make local
-	make sort
-	make finite_element
-	make cyl_funcs
-	${FC} ${FCOPTS} src/cyl.f95 ${OBJFE} sort_module.o ${LIBDIR} ${LIBS} -o cyl.exe
-	make clean
-vcyl: src/vcyl.f95
-	make local
-	make sort
-	make finite_element
-	make vcyl_mat
-	${FC} ${FCOPTS} src/vcyl.f95 ${VOBJFE} sort_module.o ${LIBDIR} ${LIBS} -o vcyl.exe
-	make clean
-testfe: src/${TESTFE}.f95
-	make local
-	make finite_element
-	make cyl_funcs
-	${FC} ${FCOPTS}  $? ${OBJFE} ${LIBDIR} ${LIBS} -o testfe.exe
-	make clean
+cyl: ${OBJ}
+	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe
+vcyl: ${VOBJ}
+	${FC} ${VOBJ} ${FCOPTS} -o vcyl.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
+testfe: local.o ${FEMOD}.o ${CYLFUNCS}.o ${TESTFE}.o
+	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS}  -o testfe.exe
+testnag: test_nag.o
+	${FC} test_nag.o ${FCOPTS}  ${NAG_LIBDIR} ${NAG_LIBS}  -o testnag.exe 
 clean:
-	rm *.o *.mod
+	rm *.o *.mod *.exe

@@ -62,6 +62,7 @@ for j in range(min(nphi,len(gamma)-1)):#nphi,2):
   g.plot(Gnuplot.Data(x,y,with='lines',title='Exact'),Gnuplot.Data(xgrid,EVs[j,:]/fac,title='Computed'),title='Spline Elements with Appert coords in Guazzotto approach')
   g.hardcopy('bspline/v_spline_EV_%d.eps'%j)
 f.close()
+
 import sys
 sys.exit()
 f = file('hermite_slow_EVs.txt')
