@@ -1,6 +1,7 @@
 &control_params
 min_N = 10,
-max_N = 21,
+max_N = 40,
+delta_N = 2,
 linconst = .false.,
 spline=.true.,
 hermite=.false.,
@@ -13,10 +14,12 @@ phi3_deriv=.true.,
 homo_plasma = .true.,
 inhomo = .false.,
 axial_flow = .false.,
+converge = .true.,
 max_Vz0 = 400,
 delta_Vz0 = 40, 
-azi_flow = .true.,
-max_Bt0 = 20,
+azi_flow = .false.,
+max_Bt0 = 0,
 delta_Bt0 = 2,
-log_Bt0 = -3
+log_Bt0 = -3,
+epsilo = 1.D-2
 /

@@ -1,6 +1,8 @@
 MODULE finite_elements_module
   USE local
   IMPLICIT NONE
+  REAL(r8) :: epsilo
+  REAL(r8) :: it, it1, it2
   
   TYPE linear
     REAL(r8), DIMENSION(2) :: dx
@@ -1050,13 +1052,13 @@ CONTAINS
     END INTERFACE
     REAL(r8) :: a, b
     INTEGER(i4), PARAMETER :: max_div = 16        ! maximum divisions of [a,b]
-    REAL(r8), PARAMETER :: epsilo = 1.D-10
     INTEGER(i8) :: j, k, min_k, i, i_max, ind, stat
     REAL(r8), DIMENSION(max_div,max_div) ::  int_arr
     REAL(r8) :: error , r_int, error2, inte, h_k, temp_int(4), xj, dx(4)
     REAL(r8), DIMENSION(:), ALLOCATABLE :: tempa
     LOGICAL, OPTIONAL, INTENT(IN) :: deriv1, deriv2
     LOGICAL :: prime1, prime2
+    CALL cpu_time(it1)
     prime1 = .false.
     prime2 = .false.
     IF (present(deriv1)) prime1 = deriv1
@@ -1083,7 +1085,7 @@ CONTAINS
         a = maxval((/spline1%xj+spline1%dx(3),0./))
         b = maxval((/spline1%xj+spline1%dx(4)+spline1%dx(3),0./))
       ENDIF
-      IF (b<=a) THEN 
+      IF ((b<=a).or.(a>=spline2%xj+spline2%dx(3)+spline2%dx(4)).or.(b<=spline2%xj-spline2%dx(1)-spline2%dx(2))) THEN 
         temp_int(ind) = 0.
         !RETURN
       ELSE
@@ -1161,22 +1163,26 @@ CONTAINS
           END IF
         END DO
         IF (k.ge.max_div) THEN
-          WRITE (*,*) 'Warning:  int_spline_spline_func at grid points ', spline1%xj,' ', spline2%xj,&
-            &' did not converge well.   prime1 = ', prime1, '  prime2 = ', prime2
-          WRITE (*,'(a20,2g16.7)') '(a,b)=',(/a,b/) , &
-            & ' func(a,b)=', func((/a,b/)), &
-            & 'spline1(a,b) = ', bspline_val(spline1,(/a,b/)),&
-            & 'spline2(a,b) = ', bspline_val(spline1,(/a,b/)), &
-            & 'spline1prime(a,b) = ', bspline_val_prime(spline1,(/a,b/)), &
-            & 'spline2prime(a,b) = ',bspline_val_prime(spline2,(/a,b/))
-          WRITE (*,*) 'inte(k) = ', (/ (int_arr(k,min_k), k=min_k,max_div) /)
-          WRITE (*,*) 'int_arr(k,k) = ', (/ (int_arr(k,k), k=min_k,max_div) /)
-          WRITE (*,*) ' '
+          IF (verbose) THEN
+            WRITE (*,*) 'Warning:  int_spline_spline_func at grid points ', spline1%xj,' ', spline2%xj,&
+              &' did not converge well.   prime1 = ', prime1, '  prime2 = ', prime2
+            WRITE (*,'(a20,2g16.7)') '(a,b)=',(/a,b/) , &
+              & ' func(a,b)=', func((/a,b/)), &
+              & 'spline1(a,b) = ', bspline_val(spline1,(/a,b/)),&
+              & 'spline2(a,b) = ', bspline_val(spline1,(/a,b/)), &
+              & 'spline1prime(a,b) = ', bspline_val_prime(spline1,(/a,b/)), &
+              & 'spline2prime(a,b) = ',bspline_val_prime(spline2,(/a,b/))
+            WRITE (*,*) 'inte(k) = ', (/ (int_arr(k,min_k), k=min_k,max_div) /)
+            WRITE (*,*) 'int_arr(k,k) = ', (/ (int_arr(k,k), k=min_k,max_div) /)
+            WRITE (*,*) ' '
+          ENDIF
           temp_int(ind) = r_int
         ENDIF
       ENDIF
     ENDDO
     int_spline_spline_func = sum(temp_int)
+    CALL cpu_time(it2)
+    it = it+it2-it1
   END FUNCTION int_spline_spline_func
   
   FUNCTION int_constant_constant_func(const1,const2,func)
@@ -1192,7 +1198,6 @@ CONTAINS
     END INTERFACE
     REAL(r8) :: a, b
     INTEGER(i4), PARAMETER :: max_div = 16        ! maximum divisions of [a,b]
-    REAL(r8), PARAMETER :: epsilo = 1.D-10
     INTEGER(i4) :: j, k, min_k, i, i_max
     REAL(r8), DIMENSION(max_div,max_div) ::  int_arr
     REAL(r8) :: error , r_int, error2, inte, h_k
@@ -1238,8 +1243,10 @@ CONTAINS
           END IF
         END IF
       END DO
-      WRITE (*,*) 'Warning:  int_constant_constant_func at grid points ', const1%xj,' ', const2%xj,&
-        &' did not converge well (a,b)=',(/a,b/) , ' for f(a,b)*(a,b)=', func((/a,b/))*(/a,b/)
+      IF(verbose) THEN
+        WRITE (*,*) 'Warning:  int_constant_constant_func at grid points ', const1%xj,' ', const2%xj,&
+          &' did not converge well (a,b)=',(/a,b/) , ' for f(a,b)*(a,b)=', func((/a,b/))*(/a,b/)
+      ENDIF
       int_constant_constant_func = r_int
     ENDIF
   END FUNCTION int_constant_constant_func
@@ -1258,7 +1265,6 @@ CONTAINS
     END INTERFACE
     REAL(r8) :: a, b
     INTEGER(i4), PARAMETER :: max_div = 20        ! maximum divisions of [a,b]
-    REAL(r8), PARAMETER :: epsilo = 1.D-10
     INTEGER(i4) :: j, k, min_k, i, i_max
     REAL(r8), DIMENSION(max_div,max_div) ::  int_arr
     REAL(r8) :: error , r_int, error2, inte, h_k
@@ -1317,9 +1323,11 @@ CONTAINS
         END IF
       END DO
       int_constant_linear_func = r_int
-      WRITE (*,*) 'Warning:  int_constant_linear_func at grid points ', const1%xj,' ', lin1%xj,&
-        &' did not converge well (a,b)=',(/a,b/) , ' for f(a,b)=', func((/a,b/)), &
-        &' prime = ', prime
+      IF(verbose) THEN
+        WRITE (*,*) 'Warning:  int_constant_linear_func at grid points ', const1%xj,' ', lin1%xj,&
+          &' did not converge well (a,b)=',(/a,b/) , ' for f(a,b)=', func((/a,b/)), &
+          &' prime = ', prime
+      ENDIF
     ENDIF
   END FUNCTION int_constant_linear_func
   
@@ -1336,7 +1344,6 @@ CONTAINS
     END INTERFACE
     REAL(r8) :: a, b
     INTEGER(i4), PARAMETER :: max_div = 16        ! maximum divisions of [a,b]
-    REAL(r8), PARAMETER :: epsilo = 1.D-10
     INTEGER(i4) :: j, k, min_k, i, i_max, k1, ind
     REAL(r8), DIMENSION(max_div,max_div) ::  int_arr
     REAL(r8) :: error , r_int, error2, inte, h_k, temp_int(2)
@@ -1435,15 +1442,17 @@ CONTAINS
             END IF
           END IF
         END DO
-        IF (k == max_div) THEN
-          WRITE (*,*) 'Warning:  int_linear_linear_func at grid points ', lin1%xj,' ', lin2%xj,&
-            &' did not converge well.   prime1 = ', prime1, '  prime2 = ', prime2
-          WRITE (*,'(a20,2g16.7)') '(a,b)=',(/a,b/) , ' func(a,b)=', func((/a,b/)), 'lin1(a,b) = ',linear_val(lin1,(/a,b/)),&
-            & 'lin2(a,b) = ', linear_val(lin1,(/a,b/)), 'lin1prime(a,b) = ',linear_val_prime(lin1,(/a,b/)), &
-            & 'lin2prime(a,b) = ',linear_val_prime(lin2,(/a,b/))
-          WRITE (*,*) 'inte(k) = ', (/ (int_arr(k,min_k), k=min_k,max_div) /)
-          WRITE (*,*) 'int_arr(k,k) = ', (/ (int_arr(k,k), k=min_k,max_div) /)
-          WRITE (*,*) ' '
+        IF (k >= max_div) THEN
+          IF (verbose) THEN
+            WRITE (*,*) 'Warning:  int_linear_linear_func at grid points ', lin1%xj,' ', lin2%xj,&
+              &' did not converge well.   prime1 = ', prime1, '  prime2 = ', prime2
+            WRITE (*,'(a20,2g16.7)') '(a,b)=',(/a,b/) , ' func(a,b)=', func((/a,b/)), 'lin1(a,b) = ',linear_val(lin1,(/a,b/)),&
+              & 'lin2(a,b) = ', linear_val(lin1,(/a,b/)), 'lin1prime(a,b) = ',linear_val_prime(lin1,(/a,b/)), &
+              & 'lin2prime(a,b) = ',linear_val_prime(lin2,(/a,b/))
+            WRITE (*,*) 'inte(k) = ', (/ (int_arr(k,min_k), k=min_k,max_div) /)
+            WRITE (*,*) 'int_arr(k,k) = ', (/ (int_arr(k,k), k=min_k,max_div) /)
+            WRITE (*,*) ' '
+          ENDIF
           temp_int(ind) = r_int
         ENDIF
       ENDIF

@@ -2,7 +2,8 @@ MODULE vcyl_matrix_module
   USE local
   IMPLICIT NONE
   INTEGER :: mt  !m_theta
-  REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp !ar is the radius of the plasma, br is the radius of the wall
+  REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2 !ar is the radius of the plasma, br is the radius of the wall
+  REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /) ! These are the 1st zeros of d J_m/ dx
   LOGICAL :: homo
 CONTAINS
   FUNCTION alfven_range(r)
@@ -21,6 +22,12 @@ CONTAINS
     slow_inf_range(2) = maxval(gamma*P(r)*kz**2/(rho(r)*(1.+gamma*P(r)/(Bz(r))**2)))
     RETURN 
   END FUNCTION slow_inf_range
+  FUNCTION max_slow()
+    IMPLICIT NONE
+    REAL(r8) :: max_slow
+    max_slow = Bz0**2*(ar**2*kz**2+gamma_mt_1(mt)**2)*(1+s2)/(2.*maxval(rho((/ar/)))*ar**2)*&
+    & (1.-sqrt(1-4*s2*(kz*ar)**2/((1+s2)**2*((ar*kz)**2+gamma_mt_1(mt)**2))))
+  END FUNCTION
   FUNCTION rho(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
@@ -64,10 +71,10 @@ CONTAINS
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: P
     IF(homo) THEN
-      P = 1./12./gamma*Bz0**2
+      P = s2/gamma*Bz0**2
     ELSE
       P = rho(r) ! This can't be true or it would violate the equilibrium condition p'=0
-      P = 1./12./gamma*Bz0**2
+      P = s2/gamma*Bz0**2
     ENDIF
     RETURN
   END FUNCTION P

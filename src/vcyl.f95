@@ -3,21 +3,27 @@ PROGRAM cyl
   USE vcyl_matrix_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: N, min_N, max_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, Bt_ind, k_ind, delta_k, max_k
-  LOGICAL :: linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow
+  INTEGER :: N, min_N, max_N, delta_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, Bt_ind, k_ind, delta_k, max_k
+  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow, slow_evecs1, alfven_evecs1, slow_evals1, var_Bt0, var_k, converge
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
-  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k
+  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k, st1, st2, st, at1, at2, at
   CHARACTER(LEN=30) :: FMT, FMTR
+  CHARACTER(LEN=40) :: filename
   INTEGER :: NN, ifail
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
-  !ML_EXTERNAL gsl_sf_bessel_J0
   
-  NAMELIST /control_params/ min_N, max_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,&
-  & phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, azi_flow, log_Bt0
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp
-  NAMELIST /azi_flow_params/ Bt0, max_Bt0, delta_Bt0, log_Bt0, max_k, delta_k, log_k
+  NAMELIST /control_params/ min_N, max_N, delta_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, &
+  & max_Bt0, delta_Bt0, azi_flow, log_Bt0, epsilo, converge
+  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2
+  NAMELIST /azi_flow_params/ Bt0, max_Bt0, delta_Bt0, log_Bt0, max_k, delta_k, log_k, var_Bt0, var_k, kz
   CALL cpu_time(t1)
+  converge = .false.
+  it = 0.
+  st = 0.
+  at = 0.
+  st1 = 0.
+  st2 = 0.
   min_N = 5
   max_N = 6
   linconst = .true.
@@ -34,89 +40,130 @@ PROGRAM cyl
   max_Bt0 = 0
   delta_Bt0 = 0
   Bt0 = 0
+  s2 = 1./12.
   ifail = 1
   TT = s17aef(1.2D0,ifail)
+  epsilo = 1.D-10
   WRITE (*,*) 'bessel_j0(1.2) = ', TT, ifail
   OPEN(1,file='src/vcontrol_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
   WRITE(*,nml=control_params) 
+  slow_evecs1 = slow_evecs
+  alfven_evecs1 = alfven_evecs
+  slow_evals1 = slow_evals
+  IF(spline.and.converge) THEN
+    slow_evals = .false.
+    slow_evecs = .false.
+    alfven_evecs = .false.
+    OPEN(1,file='src/converge.in',status='old',form='formatted')
+    READ(1,nml=cyl_params)
+    CLOSE(1)
+    WRITE(filename,'(a,i0,a,i0,a,i0,a)') 'spline_converge_',min_N,'_',max_N,'_', delta_N,'.txt'
+    OPEN(10,file=filename,status='replace')
+    WRITE (0,*) 'Output written to ', filename
+    DO N=min_N, max_N, delta_N
+      CALL bspline_deriv()
+    ENDDO
+    CLOSE(10)
+  ENDIF
   IF(homo_plasma) THEN
     OPEN(1,file='src/vhomogeneous.in',status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
     WRITE (*,nml=cyl_params)
-    DO N = min_N,max_N
-      IF (linconst) THEN
-        OPEN(2,file='lin_slow_evals.txt',status='replace')
+    IF (linconst.and.slow_evals1) THEN
+      slow_evecs=.false.
+      alfven_evecs=.false.
+      WRITE(filename,'(a,i0,a,i0,a)') 'lin_slow_evals_',min_N,'_',max_N,'.txt'
+      WRITE(0,*) 'Output written to ', filename
+      OPEN(2,file=filename,status='replace')
+      DO N = min_N,max_N
         WRITE (*,*) 'N = ', N
         WRITE (*,*) 'With linear and constant elements.'
         CALL linear_const()
-        CLOSE(2)
-      ENDIF
-    ENDDO
-    IF (linconst.and.slow_evecs) THEN
-      slow_evals = .false.
-      CALL linear_const()
-    ENDIF
-    OPEN(1,file='src/vcontrol_params.in',status='old',form='formatted')
-    READ(1,nml=control_params)
-    CLOSE(1)
-    WRITE(*,nml=control_params) 
-    IF(slow_evals) THEN
-      OPEN(2,file='spline_slow_evals.txt',status='replace')
-      DO N = min_N,max_N
-        IF (spline) THEN
-          WRITE (*,*) 'N = ', N
-          WRITE (*,*) 'With bspline elements.'
-          CALL bspline_deriv()
-        ENDIF
       ENDDO
       CLOSE(2)
     ENDIF
-    IF (spline.and.slow_evecs) THEN
+    IF (linconst.and.slow_evecs1) THEN
+      slow_evecs = .true.
       slow_evals = .false.
+      CALL linear_const()
+    ENDIF
+    IF(slow_evals1.and.spline) THEN
+      slow_evals = .true.
+      slow_evecs = .false.
+      WRITE (filename,'(a,i0,a,i0,a)') 'spline_slow_evals_',min_N,'_',max_N,'.txt'
+      OPEN(2,file=filename,status='replace')
+      WRITE (0,*) 'Output written to ', filename
+      DO N = min_N,max_N
+        WRITE (*,*) 'N = ', N
+        WRITE (*,*) 'With bspline elements.'
+        CALL bspline_deriv()
+      ENDDO
+      CLOSE(2)
+    ENDIF
+    IF (spline.and.slow_evecs1) THEN
+      slow_evals = .false.
+      slow_evecs = .true.
+      N = max_N
       CALL bspline_deriv()
     ENDIF
     IF (axial_flow) THEN
+      slow_evals = .false.
+      slow_evecs = .false.
+      alfven_evecs = .false.
       N = min_N
-      OPEN(4,file='spline_var_Vz0.txt',status='replace')
+      WRITE(filename,'(a,i0,a,i0,a,i0,a)') 'spline',N,'_var_Vz0_',delta_Vz0,'_',max_Vz0,'.txt'
+      OPEN(4,file=filename,status='replace')
+      WRITE (0,*) 'Output written to ', filename
       DO Vz0 = 0,max_Vz0, delta_Vz0
         IF (spline) THEN
-          WRITE(*,'(a,i,a)') 'With ',N,'bspline elements'
+          WRITE(*,'(a,i,a,g)') 'With ',N,'bspline elements    Vz0 = ', Vz0
           CALL bspline_deriv()
         ENDIF
       ENDDO
       CLOSE(4)
     ENDIF
     IF (azi_flow) THEN
+      slow_evals = .false.
+      slow_evecs = .false.
+      alfven_evecs = .false.
       N = min_N
       Vz0 = 0
       OPEN(1,file='src/azi_flow.in',status='old',form='formatted')
       READ(1,nml=azi_flow_params)
       CLOSE(1)
-      OPEN(7,file='spline_var_Bt0.txt',status='replace')
-      DO Bt_ind = 0, max_Bt0, delta_Bt0
-        Bt0 = Bt_ind*10**log_Bt0
-        IF (spline) THEN
-          WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
-          CALL bspline_deriv()
-        ENDIF
-      ENDDO
-      CLOSE(7)
+      IF(var_Bt0) THEN
+        WRITE(filename,'(a,i0,a,i0,a,i0,a,f0.1,a)') 'spline',N,'_var_Bt0_',delta_Bt0,'_',max_Bt0,'_',log_Bt0,'.txt'
+
+        WRITE (0,*) 'Output written to ', filename
+        OPEN(7,file=filename,status='replace')
+        DO Bt_ind = 0, max_Bt0, delta_Bt0
+          Bt0 = Bt_ind*10**log_Bt0
+          IF (spline) THEN
+            WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
+            CALL bspline_deriv()
+          ENDIF
+        ENDDO
+        CLOSE(7)
+      ENDIF
       OPEN(1,file='src/azi_flow.in',status='old',form='formatted')
       READ(1,nml=azi_flow_params)
       CLOSE(1)
-      OPEN(7,file='spline_var_k.txt',status='replace')
-      DO k_ind = delta_k, max_k, delta_k
-        kz = k_ind*10**log_k
-        IF (spline) THEN
-          WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
-          CALL bspline_deriv()
-        ENDIF
-      ENDDO
-      CLOSE(7)
-      
+      IF(var_k) THEN
+        WRITE(filename,'(a,i0,a,i0,a,i0,a,f0.1,a)') 'spline',N,'_var_k_',delta_k,'_',max_k,'_',log_k,'.txt'
+        WRITE (0,*) 'Output written to ', filename
+        OPEN(7,file=filename,status='replace')
+        DO k_ind = delta_k, max_k, delta_k
+          kz = k_ind*10**log_k
+          IF (spline) THEN
+            WRITE(*,'(a,i3,a)') 'With ',N,' bspline elements'
+            CALL bspline_deriv()
+          ENDIF
+        ENDDO
+        CLOSE(7)
+      ENDIF
     ENDIF
   ENDIF
   IF(inhomo) THEN
@@ -125,10 +172,15 @@ PROGRAM cyl
     CLOSE(1)
     WRITE (*,nml=cyl_params)
     N = min_N
-    IF (alfven_evecs) THEN
+    IF (alfven_evecs1) THEN
+      alfven_evecs = .true.
+      slow_evecs = .false.
+      slow_evals = .false.
       IF(linconst)  THEN
-        OPEN (3, status='replace', file='lin_alfven_EVs.txt')
-        DO N=min_N,max_N,10
+        WRITE (filename,'(a,3(i0,a),es6.0,a)') 'lin',min_N,'_',max_N,'_',delta_N,'_alfven_EVs_rho_eps',eps,'.txt'
+        WRITE (*,*) 'Output written to ', filename
+        OPEN (3, status='replace', file=filename)
+        DO N=min_N,max_N,delta_N
           WRITE (*,*) 'N = ', N
           WRITE (*,*) 'With linear and constant elements.'
           CALL linear_const()
@@ -136,8 +188,10 @@ PROGRAM cyl
         CLOSE(3)
       ENDIF
       IF(spline) THEN
-        OPEN (3, status='replace',file='spline_alfven_EVs.txt')
-        DO N=min_N,max_N,10
+        WRITE (filename,'(a,3(i0,a),es6.0,a)') 'spline',min_N,'_',max_N,'_',delta_N,'_alfven_EVs_rho_eps',eps,'.txt'
+        WRITE (*,*) 'Output written to ', filename
+        OPEN (3, status='replace',file=filename)
+        DO N=min_N,max_N,delta_N
           WRITE (*,*) 'N = ', N
           WRITE (*,*) 'With bspline elements.'
           CALL bspline_deriv()
@@ -145,12 +199,17 @@ PROGRAM cyl
         CLOSE(3)
       ENDIF
     ENDIF
-    IF (slow_evals) THEN
+    IF (slow_evals1) THEN
+      slow_evals = .true.
+      slow_evecs = .false.
+      alfven_evecs = .false.
       N = 20
       IF(linconst) THEN
       ENDIF
       IF(spline) THEN
-        OPEN (2, status='replace',file='spline_slow_vareps.txt')
+        WRITE (filename,'(a,i0,a,i0,a,i0,a)') 'spline',N,'_slow_vareps_',-10,'_',-4,'.txt'
+        OPEN (2, status='replace',file=filename)
+        WRITE (*,*) 'Output written to ', filename
         eps = 0
         CALL bspline_deriv()
         DO ephi2 = -10,-4
@@ -168,6 +227,9 @@ PROGRAM cyl
   WRITE (*,*) 'Alfven range (approx):', alfven_range((/0.,ar/))
   CALL cpu_time(t2)
   WRITE (0,*) 'Time taken: ', t2-t1, ' seconds.'
+  WRITE (0,*) 'Time taken by EV solver: ',st, 'seconds.'
+  WRITE (0,*) 'Time taken to assemble matrices: ',at, 'seconds.'
+  WRITE (0,*) 'Time taken to integrate matrix elements: ',it, 'seconds.'
 CONTAINS
   SUBROUTINE linear_const()
     IMPLICIT NONE
@@ -293,7 +355,7 @@ CONTAINS
     grid(1:N) = (/ (i*ar/(N-1), i=0,N-1) /)
     IF(verbose) THEN
       WRITE (*,*) 'Eqilibrium condition at grid points='
-      WRITE (*,'(g)') equilibrium(grid)
+      WRITE (*,'(g)') equilibrium(grid(2:))
     ENDIF
     xgrid = (/ (i*ar/real(size(xgrid)-1), i=0,size(xgrid)-1) /)
     nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
@@ -324,6 +386,7 @@ CONTAINS
     B = 0.
     k = 1
     m = k+3
+    CALL cpu_time(at1)
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -475,6 +538,8 @@ CONTAINS
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
       ENDDO
     ENDDO
+    CALL cpu_time(at2)
+    at = at+at2-at1
     IF(verbose) THEN
       OPEN(1,status='replace',file='A.txt')
       WRITE (1,*) 'A='
@@ -487,7 +552,14 @@ CONTAINS
     ENDIF
     C=A(:,:)
     D=B(:,:)
-    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    CALL cpu_time(st1)
+    IF(slow_evecs.or.alfven_evecs) THEN
+      CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ELSE
+      CALL DGGEV('N','N',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ENDIF
+    CALL cpu_time(st2)
+    st = st+st2-st1
     !WRITE (*,*) 'INFO =', INFO
     !WRITE (*,*) 'real(ALPHA) ='
     !WRITE (*,'(g)') ALPHAR
@@ -497,7 +569,8 @@ CONTAINS
       WRITE (4,'(g)') Vz0
       WRITE (4,'(g)') kz
       WRITE (4,'(i)') NN
-      WRITE (4,'(g)') sort(ALPHAR/BETA,rev=.true.)
+      WRITE (4,'(g)') (ALPHAR/BETA)
+      WRITE (4,'(g)') (ALPHAI/BETA)
       WRITE (4,*) ''
     ENDIF
     IF(azi_flow) THEN
@@ -507,12 +580,22 @@ CONTAINS
       WRITE (7,'(i)') mt
       WRITE (7,'(g)') ar
       WRITE (7,'(i)') NN
-      WRITE (7,'(g)') sort(ALPHAR/BETA,rev=.true.)
-      WRITE (7,'(g)') sort(ALPHAI/BETA,rev=.true.)
+      WRITE (7,'(g)') (ALPHAR/BETA)
+      WRITE (7,'(g)') (ALPHAI/BETA)
       WRITE (7,*) ''
     ENDIF
-    !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
     slow_inf = minval(slow_inf_range(grid))
+    IF(converge) THEN
+      WRITE (10,'(i)') N
+      WRITE (10,'(g)') sqrt(alfven_range((/0.,ar/)))
+      WRITE (10,'(g)') sqrt(max_slow())
+      WRITE (10,'(g)') sqrt(slow_inf_range((/0.,ar/)))
+      WRITE (10,'(i)') NN
+      WRITE (10,'(g)') (ALPHAR/BETA)
+      WRITE (10,'(g)') (ALPHAI/BETA)
+      WRITE (10,*) ''
+    ENDIF
+    !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
     !WRITE (*,*) '(real(LAMBDA) - slow_inf)/slow_inf= '
     lambda = ALPHAR**2/BETA**2
     IF(.not.homo) THEN
@@ -533,6 +616,7 @@ CONTAINS
       ENDIF
     ENDIF
     WRITE (*,*) 'inds =', inds
+    WRITE (*,*) 'max_slow = ', max_slow(), '(max_slow-slow_inf)/slow_inf = ', (max_slow()-slow_inf)/slow_inf
     DO i=1,NN
       !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
 
@@ -554,6 +638,9 @@ CONTAINS
         ENDDO
         DO j=2*size(phi1)-1,0,-2
           WRITE(1,*) ''  
+          IF(ALPHAI(inds(NN-j)).ne.0.) THEN
+            WRITE (0,*) 'Warning: Eigenmode for complex eigenvalue not computed correctly'
+          ENDIF
           DO i=1,size(xgrid)
             WRITE (1,'(g)') sum(VR(3::6,inds(NN-j))*val(phi3,xgrid(i)))
           ENDDO    

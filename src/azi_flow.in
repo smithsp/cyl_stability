@@ -1,9 +1,12 @@
 &azi_flow_params
 Bt0 = .02, 
-max_Bt0 = 0,
+kz = .5
+max_Bt0 = 20,
 delta_Bt0 = 2,
-log_Bt0 = -3,
+log_Bt0 = 0,
 max_k = 20,
 delta_k = 2,
-log_k = -1
+log_k = -.50, 
+var_Bt0 = .true.,
+var_k = .true.
 /
