@@ -61,7 +61,10 @@ for k in range(100):
   dr = Gnuplot.Data([N]*npts,evalsr,with='points 1')
   di = Gnuplot.Data([N]*npts,evalsi,with='points 1')
   dri = Gnuplot.Data(evalsr,evalsi+k,with='points',title='N=%i'%(N))
-  ds = Gnuplot.Data([N]*npts,(evalsr**2-slow_cont1**2)/slow_cont1**2,with='points 1')
+  if slow_cont1>0:
+    ds = Gnuplot.Data([N]*npts,(evalsr**2-slow_cont1**2)/slow_cont1**2,with='points 1')
+  else:
+    ds = Gnuplot.Data([N]*npts,(evalsr**2),with='points 1')
   g._add_to_queue([dr])
   g1._add_to_queue([di])
   g2._add_to_queue([dri])
@@ -71,14 +74,18 @@ g.hardcopy('bspline/spline_converge_real.eps',size=(1,1))
 g('set yrange [%g:*]'%(alfven2))
 g.hardcopy('bspline/spline_converge_real_fast.eps',size=(1,1))
 N_range = [float(min_N),float(max_N)]
-g._add_to_queue([Gnuplot.Data(N_range,[alfven1,alfven1],with='lines 2',title='Alfven1')])
-g._add_to_queue([Gnuplot.Data(N_range,[alfven2,alfven2],with='lines 3',title='Alfven2')])
+g._add_to_queue([Gnuplot.Data(N_range,[alfven1,alfven1],with='lines 2',title='Minimum Alfven')])
+g._add_to_queue([Gnuplot.Data(N_range,[alfven2,alfven2],with='lines 3',title='Maximum Alfven')])
 g('set yrange [%g:%g]'%(alfven1/1.001,alfven2*1.001))
-g('set key outside')
+g('set key below')
 g('unset logscale y')
 g.hardcopy('bspline/spline_converge_real_alfven.eps',size=(1,1))
 print slow_cont1,max_slow,slow_cont2
-g3('set yrange [*:%g]'%((max_slow-slow_cont1)/slow_cont1*2.))
+if slow_cont1 > 0:
+  g3('set yrange [*:%g]'%((max_slow-slow_cont1)/slow_cont1*2.))
+  t2 = (slow_cont2**2-slow_cont1**2)/slow_cont1**2
+  g3._add_to_queue([Gnuplot.Data(N_range,[0,0],with='lines 2',title='Minimum Slow Continuous {/Symbol w}=0')])
+  g3._add_to_queue([Gnuplot.Data(N_range,[t2,t2],with='lines 3',title='Maximum Slow Continuous')])
 g3('set logscale y')
 g3.hardcopy('bspline/spline_converge_real_slow.eps',size=(1,1))
 g1.hardcopy('bspline/spline_converge_imag.eps',size=(1,1))

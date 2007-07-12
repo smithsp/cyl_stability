@@ -1,8 +1,9 @@
 MODULE vcyl_matrix_module
   USE local
   IMPLICIT NONE
-  INTEGER :: mt  !m_theta
-  REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2 !ar is the radius of the plasma, br is the radius of the wall
+  REAL(r8), EXTERNAL :: s17aef, s17aff
+  INTEGER :: mt, equilib, ifail  !m_theta, and choice of equilibrium configuration
+  REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /) ! These are the 1st zeros of d J_m/ dx
   LOGICAL :: homo
 CONTAINS
@@ -10,8 +11,8 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(2) :: alfven_range
-    alfven_range(1) = minval(1/(rho(r))* kz**2*(Bz(r))**2 )
-    alfven_range(2) = maxval(1/(rho(r))* kz**2*(Bz(r))**2 )
+    alfven_range(1) = minval(1/(rho(r))* kz**2*(Bmag(r))**2 )
+    alfven_range(2) = maxval(1/(rho(r))* kz**2*(Bmag(r))**2 )
     RETURN    
   END FUNCTION alfven_range
   FUNCTION slow_inf_range(r)
@@ -32,57 +33,77 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: rho
-    IF(homo) THEN
-      rho = P(r)*rho0 !for Appert Homogeneous Plasma
-    ELSE
-      rho = rho0 * (1-eps*(r**2/ar**2))
-    ENDIF
+    SELECT CASE (equilib)
+      CASE(1)
+        rho = P(r)*rho0 !for Appert Homogeneous Plasma
+      CASE(2)
+        rho = rho0 * (1-eps*(r**2/ar**2))
+      CASE(3,4)
+        rho = rho0
+    ENDSELECT
     RETURN
   END FUNCTION rho
-  ELEMENTAL FUNCTION Bz(r)
+  FUNCTION Bz(r)
     IMPLICIT NONE
-    REAL(r8), INTENT(IN) :: r
-    REAL(r8) :: Bz
-    Bz = Bz0
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: Bz
+    INTEGER :: i
+    SELECT CASE (equilib)
+      CASE(1:3)
+        Bz = Bz0
+      CASE(4)
+        DO i=1,size(r)
+          Bz(i) = sqrt(1.-P1)* s17aef(lambd*r(i),ifail)
+        ENDDO
+    ENDSELECT
     RETURN
   END FUNCTION Bz
-  ELEMENTAL FUNCTION Bt(r) !for B_theta
+  FUNCTION Bt(r) !for B_theta
     IMPLICIT NONE
-    REAL(r8), INTENT(IN) :: r
-    REAL(r8) :: Bt
-    Bt = Bt0*r/ar
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: Bt
+    INTEGER :: i
+    SELECT CASE (equilib)
+      CASE(1:3)
+        Bt = Bt0*r/ar
+      CASE(4)
+        DO i=1,size(r)
+          Bt(i) = s17aff(lambd*r(i),ifail)
+        ENDDO
+    ENDSELECT
     RETURN
   END FUNCTION Bt
-  ELEMENTAL FUNCTION Bt_prime(r) !for B_theta
+  FUNCTION Bmag(r)
     IMPLICIT NONE
-    REAL(r8), INTENT(IN) :: r
-    REAL(r8) :: Bt_prime
-    Bt_prime = Bt0
-    RETURN
-  END FUNCTION Bt_prime
-  ELEMENTAL FUNCTION Bmag(r)
-    IMPLICIT NONE
-    REAL(r8), INTENT(IN) :: r
-    REAL(r8) :: Bmag
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: Bmag
     Bmag = sqrt(Bt(r)**2+Bz(r)**2)
   END FUNCTION Bmag
   FUNCTION P(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: P
-    IF(homo) THEN
-      P = s2/gamma*Bz0**2
-    ELSE
-      P = rho(r) ! This can't be true or it would violate the equilibrium condition p'=0
-      P = s2/gamma*Bz0**2
-    ENDIF
+    INTEGER :: i
+    SELECT CASE (equilib)
+      CASE(1:2)
+        P = s2/gamma*Bz0**2  
+      CASE(3)
+        P = 2*Bt0**2*(1-r**2/ar**2)
+      CASE(4)
+        DO i=1,size(r)
+          P(i) = P0+P1/2.*s17aef(lambd*r(i),ifail)**2
+        ENDDO
+    ENDSELECT
     RETURN
   END FUNCTION P
   ELEMENTAL FUNCTION Vz(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Vz
-    Vz = Vz0*(1-epsVz*r**2/ar**2)
+    SELECT CASE (equilib)
+      CASE(1:4)
+        Vz = Vz0*(1-epsVz*r**2/ar**2)        
+    ENDSELECT
   END FUNCTION Vz
   FUNCTION Vp(r)
     IMPLICIT NONE
@@ -90,17 +111,37 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: Vp
     REAL(r8) :: epsr
     epsr = epsilon(r)
-    ! In making the following change to ensure equilibrium, there was a noticable slowdown
-    Vp = sqrt(((P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r)/(rho(r)*r))
-    !Vp0*(1-epsVp*r**2/ar**2)
+    SELECT CASE (equilib)
+      CASE(1:2)
+        ! In making the following change to ensure equilibrium, there was a noticable slowdown
+        Vp = sqrt(((P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r)/(rho(r)*r)) 
+      CASE(3:4)
+        Vp = Vp0*(1-epsVp*r**2/ar**2)
+    ENDSELECT
+    RETURN
   END FUNCTION Vp
   FUNCTION equilibrium(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: equilibrium
-    REAL(r8) :: epsr
-    epsr = epsilon(r)
-    equilibrium = (P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r-rho(r)*r*Vp(r)**2
+    equilibrium = diff(P,r) + Bz(r)*diff(Bz,r)+Bt(r)*diff(Bt,r)+Bt(r)**2/r-rho(r)*r*Vp(r)**2
   END FUNCTION equilibrium
+  FUNCTION diff(func,r)
+    REAL(r8), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: diff
+    INTEGER :: i
+    REAL(r8) :: epsr
+    INTERFACE
+      FUNCTION func(r)
+        USE local
+        REAL(r8), INTENT(IN), DIMENSION(:) :: r
+        REAL(r8), DIMENSION(size(r)) :: func
+      END FUNCTION func
+    END INTERFACE
+    DO i=1,size(r)
+      epsr = 1*epsilon(r(i))
+      diff(i) = maxval((func((/r(i)+epsr/))-func((/r(i)-epsr/)))/(2*epsr))
+    ENDDO
+  END FUNCTION diff
   FUNCTION A11(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r

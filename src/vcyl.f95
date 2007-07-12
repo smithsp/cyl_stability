@@ -4,19 +4,19 @@ PROGRAM cyl
   USE finite_elements_module
   USE sort_module
   INTEGER :: N, min_N, max_N, delta_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, Bt_ind, k_ind, delta_k, max_k
-  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow, slow_evecs1, alfven_evecs1, slow_evals1, var_Bt0, var_k, converge
+  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow, slow_evecs1, alfven_evecs1, slow_evals1, var_Bt0, var_k, converge, plot_eq
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
-  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k, st1, st2, st, at1, at2, at
+  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k, st1, st2, st, at1, at2, at, log_Vz0
   CHARACTER(LEN=30) :: FMT, FMTR
   CHARACTER(LEN=40) :: filename
-  INTEGER :: NN, ifail
+  INTEGER :: NN, ifail1
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
   
   NAMELIST /control_params/ min_N, max_N, delta_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, &
-  & max_Bt0, delta_Bt0, azi_flow, log_Bt0, epsilo, converge
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2
-  NAMELIST /azi_flow_params/ Bt0, max_Bt0, delta_Bt0, log_Bt0, max_k, delta_k, log_k, var_Bt0, var_k, kz
+  & max_Bt0, delta_Bt0, azi_flow, log_Bt0, epsilo, converge, equilib, plot_eq, log_Vz0
+  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2, equilib, lambd,P0,P1
+  NAMELIST /azi_flow_params/ Bt0, max_Bt0, delta_Bt0, log_Bt0, max_k, delta_k, log_k, var_Bt0, var_k, kz, equilib
   CALL cpu_time(t1)
   converge = .false.
   it = 0.
@@ -39,12 +39,14 @@ PROGRAM cyl
   axial_flow = .false.
   max_Bt0 = 0
   delta_Bt0 = 0
+  lambd = 2
   Bt0 = 0
   s2 = 1./12.
   ifail = 1
-  TT = s17aef(1.2D0,ifail)
+  TT = s17aef(1.2D0,ifail1)
   epsilo = 1.D-10
-  WRITE (*,*) 'bessel_j0(1.2) = ', TT, ifail
+  equilib = 1
+  WRITE (*,*) 'bessel_j0(1.2) = ', TT, ifail1
   OPEN(1,file='src/vcontrol_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
@@ -52,6 +54,16 @@ PROGRAM cyl
   slow_evecs1 = slow_evecs
   alfven_evecs1 = alfven_evecs
   slow_evals1 = slow_evals
+  IF(plot_eq) THEN
+    OPEN(1,file='src/converge.in',status='old',form='formatted')
+    READ(1,nml=cyl_params)
+    CLOSE(1)
+    OPEN(1,file='src/azi_flow.in',status='old',form='formatted')
+    READ(1,nml=azi_flow_params)
+    CLOSE(1)
+    CALL plot_equilibrium
+    STOP
+  ENDIF
   IF(spline.and.converge) THEN
     slow_evals = .false.
     slow_evecs = .false.
@@ -59,6 +71,7 @@ PROGRAM cyl
     OPEN(1,file='src/converge.in',status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
+    WRITE(*,nml=cyl_params)
     WRITE(filename,'(a,i0,a,i0,a,i0,a)') 'spline_converge_',min_N,'_',max_N,'_', delta_N,'.txt'
     OPEN(10,file=filename,status='replace')
     WRITE (0,*) 'Output written to ', filename
@@ -114,16 +127,22 @@ PROGRAM cyl
       slow_evecs = .false.
       alfven_evecs = .false.
       N = min_N
-      WRITE(filename,'(a,i0,a,i0,a,i0,a)') 'spline',N,'_var_Vz0_',delta_Vz0,'_',max_Vz0,'.txt'
+      OPEN(1,file='src/axial_flow.in',status='old',form='formatted')
+      READ(1,nml=cyl_params)
+      CLOSE(1)
+      WRITE(filename,'(3(a,i0),a,f0.1,a)') 'spline',N,'_var_Vz0_',delta_Vz0,'_',max_Vz0,'_',log_Vz0,'.txt'
       OPEN(4,file=filename,status='replace')
       WRITE (0,*) 'Output written to ', filename
-      DO Vz0 = 0,max_Vz0, delta_Vz0
+      DO Bt_ind = 0,max_Vz0, delta_Vz0
+        Vz0 = Bt_ind*10**log_Vz0
         IF (spline) THEN
           WRITE(*,'(a,i,a,g)') 'With ',N,'bspline elements    Vz0 = ', Vz0
+          WRITE (*,nml=cyl_params)
           CALL bspline_deriv()
         ENDIF
       ENDDO
       CLOSE(4)
+      CALL plot_equilibrium
     ENDIF
     IF (azi_flow) THEN
       slow_evals = .false.
@@ -456,9 +475,9 @@ CONTAINS
         tempA = int_func(phi1(i),phi1(j),B41a,deriv1=.true.,deriv2=.true.)
         tempB = int_func(phi1(i),phi1(j),B41b,deriv2=.true.)+int_func(phi1(i),phi1(j),B41b,deriv1=.true.)
         tempC = int_func(phi1(i),phi1(j),B41c)
-        temp = tempA+tempB+tempC-&
-        & 1./2.*( 2*Bz(ar)*Bz(ar)*kz/mt*val(phi1(i),ar)*val(phi1(j),ar) + &
-        &         Bmag(ar)**2*(val(phi1(i),ar)*val_prime(phi1(j),ar)+val(phi1(j),ar)*val_prime(phi1(i),ar)))
+        temp = minval(tempA+tempB+tempC-&
+        & 1./2.*( 2*Bz((/ar/))*Bz((/ar/))*kz/mt*val(phi1(i),ar)*val(phi1(j),ar) + &
+        &         Bmag((/ar/))**2*(val(phi1(i),ar)*val_prime(phi1(j),ar)+val(phi1(j),ar)*val_prime(phi1(i),ar))))
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
       ENDDO
@@ -467,14 +486,14 @@ CONTAINS
         tempB = int_func(phi1(i),phi2(j),B42b,deriv1=.true.)
         tempC = int_func(phi1(i),phi2(j),B42c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = &
-        & tempB+tempC-1./2.*val(phi1(i),ar)*val(phi2(j),ar)*(Bz(ar)**2-ar*Bz(ar)*Bt(ar)*kz/mt)
+        & minval(tempB+tempC-1./2.*val(phi1(i),ar)*val(phi2(j),ar)*(Bz((/ar/))**2-ar*Bz((/ar/))*Bt((/ar/))*kz/mt))
       ENDDO
       l = 3
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         tempB = int_func(phi1(i),phi3(j),B43b,deriv1=.true.)
         tempC = int_func(phi1(i),phi3(j),B43c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB + tempC - &
-        & 1./2.*val(phi1(i),ar)*val(phi3(j),ar)*(Bt(ar)**2-Bz(ar)*Bt(ar)*mt/(kz*ar))
+        & minval(1./2.*val(phi1(i),ar)*val(phi3(j),ar)*(Bt((/ar/))**2-Bz((/ar/))*Bt((/ar/))*mt/(kz*ar)))
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -686,4 +705,33 @@ CONTAINS
     !WRITE (*,'(g)') VR(3::3,pick_val)
     
   END SUBROUTINE bspline_deriv  
+  SUBROUTINE plot_equilibrium
+    INTEGER, PARAMETER :: num_pts = 300
+    INTEGER :: i
+    REAL(r8), DIMENSION(num_pts) :: grid, pressure, zb, tb, density, pv, zv, p_prime, Bt_prime, Bz_prime
+    grid = (/ (i*ar/(num_pts-1), i=0,num_pts-1) /)
+    WRITE (*,nml=cyl_params)
+    WRITE (*,'(a,i)') 'Plotting equilib = ',equilib
+    WRITE (*,*) 'Eqilibrium condition at grid points='
+    WRITE (*,'(g)') equilibrium(grid(2:))
+    pressure = P(grid)
+    tb = Bt(grid)
+    zb = Bz(grid)
+    density = rho(grid)
+    pv = Vp(grid)*grid
+    zv = Vz(grid)
+    p_prime = diff(P,grid)
+    Bz_prime = diff(Bz,grid)
+    Bt_prime = diff(Bt,grid)
+    WRITE (*,'(5(a20))') 'pressure','p_prime', 'Bz*Bz_prime', 'Bt*Bt_prime', 'Bt**2/r'
+    DO i=2,size(grid)
+      WRITE (*,'(5(g20.10))') pressure(i), p_prime(i), zb(i)*Bz_prime(i), tb(i)*Bt_prime(i), tb(i)**2/grid(i)
+    ENDDO
+    WRITE(filename,'(a,i0,a)') 'equilib',equilib,'.txt'
+    OPEN(1,file=filename,status='replace')
+    DO i=1,num_pts
+      WRITE (1,'(g,g,g,g,g,g,g)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i)
+    ENDDO
+    CLOSE(1)
+  END SUBROUTINE plot_equilibrium
 END PROGRAM cyl

@@ -1,0 +1,15 @@
+&cyl_params
+ar=1.,
+kz=1.2,
+gamma=1.6666666666666666666666,  !5/3
+mt=1,
+rho0=1.,
+eps=0,
+homo=.false., 
+equilib = 4,
+Bz0=.02,
+Bt0=0.,
+P0=0.05,
+P1=0.10,
+epsVz=1
+/
