@@ -3,8 +3,8 @@ PROGRAM cyl
   USE cyl_funcs_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: N, min_N, max_N, epsi
-  LOGICAL :: linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs, psi_deriv, chi_deriv, homo_plasma, inhomo
+  INTEGER :: N, min_N, max_N, epsi, nz
+  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, psi_deriv, chi_deriv, homo_plasma, inhomo, var_nq
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: i, j, k, l, nphi, npsi, nchi, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
   REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf
@@ -13,8 +13,8 @@ PROGRAM cyl
   INTEGER :: LDVL=1, LWORK, LDVR, lower(3), upper(3)
   
   NAMELIST /control_params/ min_N, max_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,&
-  & psi_deriv, chi_deriv, homo_plasma, inhomo
-  NAMELIST /cyl_params/ ar, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0
+  & psi_deriv, chi_deriv, homo_plasma, inhomo, var_nq
+  NAMELIST /cyl_params/ ar, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, nz
   min_N = 5
   max_N = 6
   linconst = .true.
@@ -27,6 +27,8 @@ PROGRAM cyl
   chi_deriv = .true.
   homo_plasma = .true.
   inhomo = .false.
+  var_nq = .false.
+  nz = 1
   OPEN(1,file='src/control_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
@@ -105,9 +107,20 @@ PROGRAM cyl
           eps = 10**(epsi/2.0)
           CALL bspline_deriv()
         ENDDO
-        CLOSE(3)
+        CLOSE(2)
       ENDIF
     ENDIF
+  ENDIF
+  IF(var_nq) THEN
+    OPEN(1,file='src/var_q.in',form='formatted',status='old')
+    READ(1,nml=cyl_params)
+    CLOSE(1)
+    kz = nz/(5.*ar)
+    DO nq = -10,10,2
+      Bt0 = 1./(-mt+nq/5.1)*(Bz0*nz)/5.
+      WRITE(*,nml=cyl_params)
+      CALL bspline_deriv()
+    ENDDO
   ENDIF
   IF (hermite) THEN
     WRITE (*,*) 'With Hermite elements.'

@@ -2,7 +2,7 @@ MODULE vcyl_matrix_module
   USE local
   IMPLICIT NONE
   REAL(r8), EXTERNAL :: s17aef, s17aff
-  INTEGER :: mt, equilib, ifail  !m_theta, and choice of equilibrium configuration
+  INTEGER :: mt, equilib, ifail, nz  !m_theta, choice of equilibrium configuration, 
   REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /) ! These are the 1st zeros of d J_m/ dx
   LOGICAL :: homo
@@ -38,8 +38,10 @@ CONTAINS
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
       CASE(2)
         rho = rho0 * (1-eps*(r**2/ar**2))
-      CASE(3,4)
+      CASE(3:4)
         rho = rho0
+      CASE(5)
+        rho = P(r)*rho0
     ENDSELECT
     RETURN
   END FUNCTION rho
@@ -55,6 +57,8 @@ CONTAINS
         DO i=1,size(r)
           Bz(i) = sqrt(1.-P1)* s17aef(lambd*r(i),ifail)
         ENDDO
+      CASE(5)
+        Bz = Bz0
     ENDSELECT
     RETURN
   END FUNCTION Bz
@@ -70,6 +74,8 @@ CONTAINS
         DO i=1,size(r)
           Bt(i) = s17aff(lambd*r(i),ifail)
         ENDDO
+      CASE(5)
+        Bt = Bt0*r/ar
     ENDSELECT
     RETURN
   END FUNCTION Bt
@@ -88,11 +94,13 @@ CONTAINS
       CASE(1:2)
         P = s2/gamma*Bz0**2  
       CASE(3)
-        P = 2*Bt0**2*(1-r**2/ar**2)
+        P = Bt0**2*(1-r**2/ar**2)
       CASE(4)
         DO i=1,size(r)
           P(i) = P0+P1/2.*s17aef(lambd*r(i),ifail)**2
         ENDDO
+      CASE(5)
+        P = Bt0**2*(1-r**2/ar**2)
     ENDSELECT
     RETURN
   END FUNCTION P
@@ -101,7 +109,7 @@ CONTAINS
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Vz
     SELECT CASE (equilib)
-      CASE(1:4)
+      CASE(1:5)
         Vz = Vz0*(1-epsVz*r**2/ar**2)        
     ENDSELECT
   END FUNCTION Vz
@@ -115,11 +123,21 @@ CONTAINS
       CASE(1:2)
         ! In making the following change to ensure equilibrium, there was a noticable slowdown
         Vp = sqrt(((P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r)/(rho(r)*r)) 
-      CASE(3:4)
+      CASE(3:5)
         Vp = Vp0*(1-epsVp*r**2/ar**2)
     ENDSELECT
     RETURN
   END FUNCTION Vp
+  FUNCTION q(r)
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: q
+    IF (Bt0.ne.0) THEN
+      q = kz*ar*Bz(r)/Bt0
+    ELSE
+      q = 0
+    ENDIF
+    RETURN
+  END FUNCTION q
   FUNCTION equilibrium(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: equilibrium
@@ -138,7 +156,7 @@ CONTAINS
       END FUNCTION func
     END INTERFACE
     DO i=1,size(r)
-      epsr = 1*epsilon(r(i))
+      epsr = 10*epsilon(r(i))
       diff(i) = maxval((func((/r(i)+epsr/))-func((/r(i)-epsr/)))/(2*epsr))
     ENDDO
   END FUNCTION diff

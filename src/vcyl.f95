@@ -3,19 +3,20 @@ PROGRAM cyl
   USE vcyl_matrix_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: N, min_N, max_N, delta_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, Bt_ind, k_ind, delta_k, max_k
-  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow, slow_evecs1, alfven_evecs1, slow_evals1, var_Bt0, var_k, converge, plot_eq
+  INTEGER :: N, min_N, max_N, delta_N, ephi2, max_Vz0, delta_Vz0, max_Bt0, delta_Bt0, Bt_ind, k_ind, delta_k, max_k, id_num
+  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, azi_flow, slow_evecs1, alfven_evecs1, slow_evals1, var_Bt0, var_k, converge, plot_eq, var_nq
+  REAL(r8) :: log_Vz0,  nq
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
-  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k, st1, st2, st, at1, at2, at, log_Vz0
+  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf, t1, t2, log_Bt0, TT, log_k, st1, st2, st, at1, at2, at
   CHARACTER(LEN=30) :: FMT, FMTR
-  CHARACTER(LEN=40) :: filename
+  CHARACTER(LEN=40) :: filename, date, time
   INTEGER :: NN, ifail1
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
   
   NAMELIST /control_params/ min_N, max_N, delta_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,phi2_deriv, phi3_deriv, homo_plasma, inhomo, axial_flow, max_Vz0, delta_Vz0, &
-  & max_Bt0, delta_Bt0, azi_flow, log_Bt0, epsilo, converge, equilib, plot_eq, log_Vz0
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2, equilib, lambd,P0,P1
+  & max_Bt0, delta_Bt0, azi_flow, log_Bt0, epsilo, converge, equilib, plot_eq, log_Vz0, id_num, var_nq
+  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, Vz0, epsVz, Vp0, epsVp, s2, equilib, lambd,P0,P1, N, nz
   NAMELIST /azi_flow_params/ Bt0, max_Bt0, delta_Bt0, log_Bt0, max_k, delta_k, log_k, var_Bt0, var_k, kz, equilib
   CALL cpu_time(t1)
   converge = .false.
@@ -24,6 +25,7 @@ PROGRAM cyl
   at = 0.
   st1 = 0.
   st2 = 0.
+  id_num = 1
   min_N = 5
   max_N = 6
   linconst = .true.
@@ -46,6 +48,10 @@ PROGRAM cyl
   TT = s17aef(1.2D0,ifail1)
   epsilo = 1.D-10
   equilib = 1
+  CALL date_and_time(date=date,time=time)
+  OPEN(11,file='research.log',status='old',position='append')
+  WRITE (11,*) ''
+  WRITE (11,*) date(5:6),'/',date(7:8),'/',date(1:4), '     ',time(1:2),':',time(3:4)
   WRITE (*,*) 'bessel_j0(1.2) = ', TT, ifail1
   OPEN(1,file='src/vcontrol_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
@@ -55,11 +61,8 @@ PROGRAM cyl
   alfven_evecs1 = alfven_evecs
   slow_evals1 = slow_evals
   IF(plot_eq) THEN
-    OPEN(1,file='src/converge.in',status='old',form='formatted')
+    OPEN(1,file='src/plot_eq.in',status='old',form='formatted')
     READ(1,nml=cyl_params)
-    CLOSE(1)
-    OPEN(1,file='src/azi_flow.in',status='old',form='formatted')
-    READ(1,nml=azi_flow_params)
     CLOSE(1)
     CALL plot_equilibrium
     STOP
@@ -235,9 +238,20 @@ PROGRAM cyl
           eps = 10**(ephi2/2.0)
           CALL bspline_deriv()
         ENDDO
-        CLOSE(3)
+        CLOSE(2)
       ENDIF
     ENDIF
+  ENDIF
+  IF(var_nq) THEN
+    OPEN(1,file='src/var_nq.in',form='formatted',status='old')
+    READ(1,nml=cyl_params)
+    CLOSE(1)
+    kz = nz/(5.*ar)
+    DO nq = -10,10,2
+      Bt0 = 1./(-mt+nq/20.0)*(Bz0*nz)/5.
+      WRITE(*,nml=cyl_params)
+      CALL bspline_deriv()
+    ENDDO
   ENDIF
   IF (hermite) THEN
     WRITE (*,*) 'With Hermite elements.'
@@ -249,6 +263,7 @@ PROGRAM cyl
   WRITE (0,*) 'Time taken by EV solver: ',st, 'seconds.'
   WRITE (0,*) 'Time taken to assemble matrices: ',at, 'seconds.'
   WRITE (0,*) 'Time taken to integrate matrix elements: ',it, 'seconds.'
+  CLOSE(11)
 CONTAINS
   SUBROUTINE linear_const()
     IMPLICIT NONE
@@ -272,90 +287,11 @@ CONTAINS
     CALL init(phi1(2:N-1),grid(2:N-1),p2=grid(1:N-2),p3=grid(3:N))
     CALL init(phi2(1:N-1),grid(1:N-1),p3=grid(2:N))
     CALL init(phi3(1:N-1),grid(1:N-1),p3=grid(2:N))
-
-
-  !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    NN = size(phi1)+size(phi2)+size(phi3)
-    LWORK=10*NN
-    LDVR = NN
-    WRITE(FMT,'(a1,I,a)') '(',NN,'g14.5)'
-    WRITE(FMTR,'(a1,I,a)') '(',nphi1,'g20.12)'
-
-    A = 0.
-    B = 0.
-    k = 1
-
-    IF(verbose) THEN
-      OPEN(1,status='replace',file='lin_A.txt')
-      WRITE (1,*) 'A='
-      WRITE (1,FMT) transpose(A)
-      CLOSE(1)
-      OPEN(1,status='replace',file='lin_B.txt')
-      WRITE (1,*) 'B='
-      WRITE (1,FMT) transpose(B)
-      CLOSE(1)
-    ENDIF
-    C=A(:,:)
-    D=B(:,:)
-    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
-    !WRITE (*,*) 'INFO =', INFO
-    !WRITE (*,*) 'real(ALPHA) ='
-    !WRITE (*,'(g)') ALPHAR
-    !WRITE (*,*) 'BETA ='
-    !WRITE (*,'(g)') BETA
-    !WRITE (*,*) 'real(LAMBDA) = '
-    !WRITE (*,'(g)') (ALPHAR)/BETA
-    !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
-    lambda = sort(ALPHAR/BETA,rev=.true.)
-    IF(.not.homo) THEN
-      WRITE (*,*) 'alfven range = ', alfven_range(grid)
-      WRITE (*,*) 'slow_inf range = ', slow_inf_range(grid)
-      WRITE (*,*) 'Lambda = '
-      WRITE (*,'(g)') lambda
-    ENDIF
-    slow_inf = minval(slow_inf_range(grid))
-    !WRITE (*,*) '(real(LAMBDA) - slow_inf)/slow_inf= '
-    slow = sort(((ALPHAR)/BETA-slow_inf)/slow_inf,rev=.true.,inds=inds)
-    IF (slow_evals) WRITE(2,FMTR) slow(NN-nphi1+1:NN)
-    WRITE (*,*) '(lambda-slow_inf)/slow_inf = '
-    DO i=1,NN
-      !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
-      WRITE (*,'(g)')  slow(i)
-    ENDDO
-    WRITE (*,*) ' '
-    !WRITE (*,*) 'k^2 Bz(grid)^2/rho(grid) = '
-    !WRITE (*,'(g)') kz**2*(Bz(grid))**2/(rho(grid))
-    !WRITE (*,*) 'B V1 - L1 A V1='
-    pick_val = NN
-    !WRITE (*,'(g,g)') matmul(D,VR(:,pick_val))-(ALPHAR(pick_val)+(0,1)*ALPHAI(pick_val))/BETA(pick_val)*matmul(C,VR(:,pick_val))
-
-    IF(slow_evecs.and.(.not.slow_evals)) THEN
-      OPEN (1, status='replace',file='lin_slow_EVs.txt')
-      WRITE (1,'(i)') size(grid)-1
-      WRITE (1,'(i)') size(phi1)
-      DO i=1,size(grid)-1
-        WRITE (1,'(g)') (grid(i)+grid(i+1))/2.
-      ENDDO
-      DO j=size(phi1)-1,0,-1
-        WRITE(1,*) ''  
-        DO i=1,size(grid)-1
-          WRITE (1,'(g)') sum(VR(3::3,inds(NN-j))*val(phi3,(grid(i)+grid(i+1))/2))
-        ENDDO    
-      ENDDO
-      CLOSE(1)
-    ENDIF
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    pick_val = NN
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    ind = minloc(abs(ALPHAR/BETA-0.513e-04))
-    !WRITE (*,*) 'Lambda(',ind(1),') = ',ALPHAR(ind(1))/BETA(ind(1)) 
-    !WRITE (*,'(g)') (VR(2::3,ind(1)))
+    WRITE (*,*) 'The linear finite elements are not implemented.'
   END SUBROUTINE linear_const
   SUBROUTINE bspline_deriv()
     IMPLICIT NONE
-    REAL(r8), DIMENSION(N):: grid!, slow!, slow_sort
+    REAL(r8), DIMENSION(N):: grid
     TYPE(bspline), DIMENSION(0:N) :: phi1, phi2, phi3, phi4, phi5, phi6
     REAL(r8), DIMENSION(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6),&
     & size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)):: A, B, C, D, VR
@@ -572,18 +508,15 @@ CONTAINS
     C=A(:,:)
     D=B(:,:)
     CALL cpu_time(st1)
-    IF(slow_evecs.or.alfven_evecs) THEN
-      CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
-    ELSE
-      CALL DGGEV('N','N',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
-    ENDIF
+    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
     CALL cpu_time(st2)
     st = st+st2-st1
-    !WRITE (*,*) 'INFO =', INFO
-    !WRITE (*,*) 'real(ALPHA) ='
-    !WRITE (*,'(g)') ALPHAR
-    !WRITE (*,*) 'BETA ='
-    !WRITE (*,'(g)') BETA
+    
+    CALL get_id_num()
+    CALL output_params(at2-at1,st2-st1)
+    CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
+    CALL output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR)
+    
     IF(axial_flow) THEN
       WRITE (4,'(g)') Vz0
       WRITE (4,'(g)') kz
@@ -637,8 +570,6 @@ CONTAINS
     WRITE (*,*) 'inds =', inds
     WRITE (*,*) 'max_slow = ', max_slow(), '(max_slow-slow_inf)/slow_inf = ', (max_slow()-slow_inf)/slow_inf
     DO i=1,NN
-      !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
-
       WRITE (*,'(g,a,g)')  slow(i), ' = ', (ALPHAR(inds(i))**2/BETA(inds(i))**2-slow_inf)/slow_inf
     ENDDO
     WRITE (*,*) ' '
@@ -708,7 +639,7 @@ CONTAINS
   SUBROUTINE plot_equilibrium
     INTEGER, PARAMETER :: num_pts = 300
     INTEGER :: i
-    REAL(r8), DIMENSION(num_pts) :: grid, pressure, zb, tb, density, pv, zv, p_prime, Bt_prime, Bz_prime
+    REAL(r8), DIMENSION(num_pts) :: grid, pressure, zb, tb, density, pv, zv, p_prime, Bt_prime, Bz_prime, safety
     grid = (/ (i*ar/(num_pts-1), i=0,num_pts-1) /)
     WRITE (*,nml=cyl_params)
     WRITE (*,'(a,i)') 'Plotting equilib = ',equilib
@@ -720,6 +651,7 @@ CONTAINS
     density = rho(grid)
     pv = Vp(grid)*grid
     zv = Vz(grid)
+    safety = q(grid)
     p_prime = diff(P,grid)
     Bz_prime = diff(Bz,grid)
     Bt_prime = diff(Bt,grid)
@@ -730,8 +662,76 @@ CONTAINS
     WRITE(filename,'(a,i0,a)') 'equilib',equilib,'.txt'
     OPEN(1,file=filename,status='replace')
     DO i=1,num_pts
-      WRITE (1,'(g,g,g,g,g,g,g)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i)
+      WRITE (1,'(g,g,g,g,g,g,g,g)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i), safety(i)
     ENDDO
     CLOSE(1)
   END SUBROUTINE plot_equilibrium
+  SUBROUTINE get_id_num()
+    IF(id_num > 0) THEN
+      WRITE (filename,'(a,i0,a)') 'equilib',equilib,'.num'
+      OPEN(1,file=filename,status='old')
+      READ(1,'(i)') id_num
+      CLOSE(1)
+      OPEN(1,file=filename,status='replace')
+      WRITE(1,'(i0)') id_num+1
+      CLOSE(1)
+    ENDIF
+  END SUBROUTINE get_id_num
+  SUBROUTINE output_params(assemble_t,solve_t)
+    REAL(r8), INTENT(IN) :: assemble_t,solve_t
+    WRITE(filename,'(2(a,i0),a)') 'output/equilib', equilib,'/',id_num,'.dat'
+    WRITE(11,*) filename
+    OPEN(1,file=filename,status='new')
+    WRITE(1,'(i)') N, NN, mt, equilib
+    WRITE(1,'(g)') assemble_t, solve_t, kz, ar, Vz0, epsVz, rho0
+    SELECT CASE (equilib)
+      CASE(1)
+        WRITE(1,'(g)') Bz0, Bt0, s2
+      CASE(2)
+        WRITE(1,'(g)') Bz0, Bt0, s2, eps
+      CASE(3)
+        WRITE(1,'(g)') Bz0, Bt0, Vp0, epsVp
+        WRITE(1,'(i)') nz
+      CASE(4)
+        WRITE(1,'(g)') P0, P1, lambd
+      CASE(5)
+        WRITE(1,'(g)') Bz0, Bt0, Vp0, epsVp
+        WRITE(1,'(i)') nz
+    ENDSELECT
+    CLOSE(1)
+  END SUBROUTINE output_params
+  SUBROUTINE output_evals(evalsr,evalsi)
+    REAL(r8), DIMENSION(:), INTENT(IN) :: evalsr, evalsi
+    WRITE(filename,'(2(a,i0),a)') 'output/equilib',equilib,'/',id_num,'.evalsr'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,'(g)') evalsr
+    CLOSE(1)
+    WRITE(filename,'(2(a,i0),a)') 'output/equilib',equilib,'/',id_num,'.evalsi'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,'(g)') evalsi
+    CLOSE(1)    
+  END SUBROUTINE output_evals
+  SUBROUTINE output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR)
+    TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3,phi4,phi5,phi6
+    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
+    TYPE(bspline), DIMENSION(size(phi1),6) :: phi
+    INTEGER :: N , i, j, k
+    CHARACTER(LEN=30) FMT
+    phi = reshape((/phi1,phi2,phi3,phi4,phi5,phi6/),(/size(phi1),6/))
+    N = size(grid)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
+    WRITE(filename,'(2(a,i0),a)') 'output/equilib',equilib,'/',id_num,'.grid'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,FMT) (grid(i),',',i=1,size(grid))
+    CLOSE(1)
+    DO j=1,6
+      WRITE(filename,'(3(a,i0))') 'output/equilib',equilib,'/',id_num,'.evecs',j
+      OPEN(1,file=filename,status='new')
+      DO k=1,size(VR(1,:))
+        WRITE(1,FMT) ( sum(VR(j::6,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
+      ENDDO
+      CLOSE(1)
+    ENDDO 
+  END SUBROUTINE output_evecs
 END PROGRAM cyl

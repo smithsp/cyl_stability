@@ -43,14 +43,14 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Bt
-    Bt = Bt0
+    Bt = Bt0*r/ar
     RETURN
   END FUNCTION Bt
   ELEMENTAL FUNCTION Bt_prime(r) !for B_theta
     IMPLICIT NONE
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Bt_prime
-    Bt_prime = 0.
+    Bt_prime = Bt0/ar
     RETURN
   END FUNCTION Bt_prime
   FUNCTION P(r)
@@ -62,6 +62,7 @@ CONTAINS
     ELSE
       P = rho(r) ! This can't be true or it would violate the equilibrium condition p'=0
       P = 1./12./gamma*Bz(r)**2
+      P = Bt0**2*(1-r**2/ar**2)
     ENDIF
     RETURN
   END FUNCTION P

@@ -3,7 +3,7 @@ num = int(sys.argv[1])
 print 'num = %d'%num
 g = Gnuplot.Gnuplot()
 g('set term postscript enhanced')
-g('set output "equilib%d.ps"'%num)
+g('set output "equilib%d.eps"'%num)
 
 g('set multiplot')
 g('set size .5, 1/3.')
@@ -32,8 +32,8 @@ g('set title "{/Symbol W}(r)*r"')
 g('plot "equilib%d.txt" using 1:6 notitle with lines'%num)
 
 g('set origin .5, 0')
-g('set title "V_z(r)"')
-g('plot "equilib%d.txt" using 1:7 notitle with lines'%num)
+g('set title "q(r)"')
+g('plot "equilib%d.txt" using 1:8 notitle with lines'%num)
 
 g('unset multiplot')
 g('set term x11')
