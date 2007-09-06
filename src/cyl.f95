@@ -372,7 +372,6 @@ CONTAINS
   SUBROUTINE output_params(assemble_t,solve_t)
     REAL(r8), INTENT(IN) :: assemble_t,solve_t
     WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib', equilib,'/',id_num,'.dat'
-    WRITE(11,*) filename
     OPEN(1,file=filename,status='replace')
     IF (spline) THEN
       WRITE(1,'(a)') 'spline'
