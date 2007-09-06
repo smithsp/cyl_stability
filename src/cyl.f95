@@ -14,7 +14,7 @@ PROGRAM cyl
   INTEGER :: LDVL=1, LWORK, LDVR, lower(3), upper(3)
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ ar, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, nz, s2, equilib, N, nz, psi_deriv, chi_deriv, spline
+  NAMELIST /cyl_params/ ar, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N,  psi_deriv, chi_deriv, spline, epsilo
   spline = .true.
   verbose = .false.
   psi_deriv = .true.

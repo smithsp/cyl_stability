@@ -5,7 +5,6 @@ MODULE cyl_funcs_module
   INTEGER :: mt, equilib, ifail, nz  !m_theta, choice of equilibrium configuration, 
   REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
-  LOGICAL :: homo
 CONTAINS
   FUNCTION alfven_range(r)
     IMPLICIT NONE
