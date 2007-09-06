@@ -185,7 +185,6 @@ CONTAINS
     CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
     CALL cpu_time(st2)
     st = st+st2-st1
-    CALL get_id_num()
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs_linconst(phi,psi,chi,grid,VR)
@@ -322,7 +321,6 @@ CONTAINS
     CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
     CALL cpu_time(st2)
     st = st+st2-st1
-    CALL get_id_num()
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs_spline(phi,psi,chi,grid,VR)    
@@ -358,20 +356,10 @@ CONTAINS
     ENDDO
     CLOSE(1)
   END SUBROUTINE plot_equilibrium
-  SUBROUTINE get_id_num()
-    IF(id_num > 0) THEN
-      WRITE (filename,'(a,i0,a)') 'equilib',equilib,'.num'
-      OPEN(1,file=filename,status='old')
-      READ(1,'(i)') id_num
-      CLOSE(1)
-      OPEN(1,file=filename,status='replace')
-      WRITE(1,'(i0)') id_num+1
-      CLOSE(1)
-    ENDIF
-  END SUBROUTINE get_id_num
+
   SUBROUTINE output_params(assemble_t,solve_t)
     REAL(r8), INTENT(IN) :: assemble_t,solve_t
-    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib', equilib,'/',id_num,'.dat'
+    WRITE(filename,'(a,i0,a)') 'output_cyl/',num,'.dat'
     OPEN(1,file=filename,status='replace')
     IF (spline) THEN
       WRITE(1,'(a)') 'spline'
@@ -398,12 +386,12 @@ CONTAINS
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
     REAL(r8), DIMENSION(:), INTENT(IN) :: evalsr, evalsi
-    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.evalsr'
-    OPEN(1,file=filename,status='new')
+    WRITE(filename,'(a,i0,a)') 'output_cyl/',num,'.evalsr'
+    OPEN(1,file=filename,status='replace')
     WRITE(1,'(g)') evalsr
     CLOSE(1)
-    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.evalsi'
-    OPEN(1,file=filename,status='new')
+    WRITE(filename,'(a,i0,a)') 'output_cyl/',num,'.evalsi'
+    OPEN(1,file=filename,status='replace')
     WRITE(1,'(g)') evalsi
     CLOSE(1)    
   END SUBROUTINE output_evals
@@ -417,13 +405,13 @@ CONTAINS
     phi = reshape((/phi1,phi2,phi3/),(/size(phi1),3/))
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.grid'
-    OPEN(1,file=filename,status='new')
+    WRITE(filename,'(a,i0,a)') 'output_cyl/',num,'.grid'
+    OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     DO j=1,3
-      WRITE(filename,'(3(a,i0))') 'output_cyl/equilib',equilib,'/',id_num,'.evecs',j
-      OPEN(1,file=filename,status='new')
+      WRITE(filename,'(2(a,i0))') 'output_cyl/',id_num,'.evecs',j
+      OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
         WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
       ENDDO
@@ -441,20 +429,20 @@ CONTAINS
     phi = reshape((/phi2,phi3/),(/size(phi1),3/))
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.grid'
-    OPEN(1,file=filename,status='new')
+    WRITE(filename,'(a,i0,a)') 'output_cyl/', num,'.grid'
+    OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     j=1
-    WRITE(filename,'(3(a,i0))') 'output_cyl/equilib',equilib,'/',id_num,'.evecs',j
-    OPEN(1,file=filename,status='new')
+    WRITE(filename,'(2(a,i0))') 'output_cyl/', num,'.evecs',j
+    OPEN(1,file=filename,status='replace')
     DO k=1,size(VR(1,:))
       WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi1,grid(i))),',' , i=1,size(grid) )
     ENDDO
     CLOSE(1)
     DO j=2,3
-      WRITE(filename,'(3(a,i0))') 'output_cyl/equilib',equilib,'/',id_num,'.evecs',j
-      OPEN(1,file=filename,status='new')
+      WRITE(filename,'(2(a,i0))') 'output_cyl/', num,'.evecs',j
+      OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
         WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
       ENDDO
