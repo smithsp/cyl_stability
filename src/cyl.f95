@@ -3,130 +3,66 @@ PROGRAM cyl
   USE cyl_funcs_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: N, min_N, max_N, epsi, nz
-  LOGICAL :: linconst, spline, hermite, slow_evals, slow_evecs, alfven_evecs, psi_deriv, chi_deriv, homo_plasma, inhomo, var_nq
+  INTEGER :: epsi, ref, start, fin, id_num
+  LOGICAL :: spline, psi_deriv, chi_deriv
+  CHARACTER(LEN=40) :: filename, date, time
 !The following are all used in subroutines below and should not be used in the main (cyl) program
-  INTEGER :: i, j, k, l, nphi, npsi, nchi, INFO, pick_val, ind4(1), ind8(1), stat, ind(1)
-  REAL(r8) :: temp, tempA, tempB, tempC, areps, slow_inf
+  INTEGER :: N, i, j, k, l, nphi, npsi, nchi, INFO, num
+  REAL(r8) :: temp, tempA, tempB, tempC, at1, at2, st1, st2, t1, t2
   CHARACTER(LEN=30) :: FMT, FMTR
   INTEGER :: NN
   INTEGER :: LDVL=1, LWORK, LDVR, lower(3), upper(3)
   
-  NAMELIST /control_params/ min_N, max_N, linconst, spline, hermite, verbose, slow_evals, slow_evecs, alfven_evecs,&
-  & psi_deriv, chi_deriv, homo_plasma, inhomo, var_nq
-  NAMELIST /cyl_params/ ar, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, nz
-  min_N = 5
-  max_N = 6
-  linconst = .true.
+  NAMELIST /control_params/  ref, start, fin, verbose
+  NAMELIST /cyl_params/ ar, kz, gamma, mt, rho0, eps, homo, Bz0, Bt0, nz, s2, equilib, N, nz, psi_deriv, chi_deriv, spline
   spline = .true.
-  hermite = .true.
   verbose = .false.
-  slow_evals = .true.
-  slow_evecs = .false.
   psi_deriv = .true.
   chi_deriv = .true.
-  homo_plasma = .true.
-  inhomo = .false.
-  var_nq = .false.
-  nz = 1
-  OPEN(1,file='src/control_params.in',status='old',form='formatted')
+  id_num = 1
+  CALL cpu_time(t1)
+  OPEN(1,file='control_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
   WRITE(*,nml=control_params) 
-  IF(homo_plasma) THEN
-    OPEN(1,file='src/homogeneous.in',status='old',form='formatted')
+  IF (ref.ne.start) THEN
+    num = ref
+    WRITE(filename,'(a,i0,a)') 'input/',ref,'.in'
+    WRITE(*,*)  'Inputting parameters from ', filename
+    OPEN(1,file=filename,status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
-    WRITE (*,nml=cyl_params)
-    OPEN(2,file='lin_slow_evals.txt',status='replace')
-    DO N = min_N,max_N
-      IF (linconst) THEN
-        WRITE (*,*) 'N = ', N
-        WRITE (*,*) 'With linear and constant elements.'
-        CALL linear_const()
-      ENDIF
-    ENDDO
-    CLOSE(2)
-    IF (linconst.and.slow_evecs) THEN
-      slow_evals = .false.
+    OPEN(1,file=filename,status='replace',form='formatted')
+    WRITE(1,nml=cyl_params)
+    CLOSE(1)
+    WRITE(*,nml=cyl_params)
+    IF (spline) THEN
+      CALL bspline_deriv()      
+    ELSE 
       CALL linear_const()
     ENDIF
-    OPEN(1,file='src/control_params.in',status='old',form='formatted')
-    READ(1,nml=control_params)
-    CLOSE(1)
-    WRITE(*,nml=control_params) 
-    OPEN(2,file='spline_slow_evals.txt',status='replace')
-    DO N = min_N,max_N
-      IF (spline) THEN
-        WRITE (*,*) 'N = ', N
-        WRITE (*,*) 'With bspline elements.'
-        CALL bspline_deriv()
-      ENDIF
-    ENDDO
-    CLOSE(2)
-    IF (spline.and.slow_evecs) THEN
-      slow_evals = .false.
-      CALL bspline_deriv()
-    ENDIF
   ENDIF
-  IF(inhomo) THEN
-    OPEN(1,file='src/inhomogeneous.in',status='old',form='formatted')
+  DO num = start,fin
+    WRITE(filename,'(a,i0,a)') 'input/',num,'.in'
+    WRITE(*,*)  'Inputting parameters from ', filename
+    OPEN(1,file=filename,status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
-    WRITE (*,nml=cyl_params)
-    N = min_N
-    IF (alfven_evecs) THEN
-      IF(linconst)  THEN
-        OPEN (3, status='replace', file='lin_alfven_EVs.txt')
-        DO N=min_N,max_N,10
-          WRITE (*,*) 'N = ', N
-          WRITE (*,*) 'With linear and constant elements.'
-          CALL linear_const()
-        ENDDO
-        CLOSE(3)
-      ENDIF
-      IF(spline) THEN
-        OPEN (3, status='replace',file='spline_alfven_EVs.txt')
-        DO N=min_N,max_N,10
-          WRITE (*,*) 'N = ', N
-          WRITE (*,*) 'With bspline elements.'
-          CALL bspline_deriv()
-        ENDDO
-        CLOSE(3)
-      ENDIF
-    ENDIF
-    IF (slow_evals) THEN
-      N = 20
-      IF(linconst) THEN
-      ENDIF
-      IF(spline) THEN
-        OPEN (2, status='replace',file='spline_slow_vareps.txt')
-        eps = 0
-        CALL bspline_deriv()
-        DO epsi = -10,-4
-          eps = 10**(epsi/2.0)
-          CALL bspline_deriv()
-        ENDDO
-        CLOSE(2)
-      ENDIF
-    ENDIF
-  ENDIF
-  IF(var_nq) THEN
-    OPEN(1,file='src/var_q.in',form='formatted',status='old')
-    READ(1,nml=cyl_params)
+    OPEN(1,file=filename,status='replace',form='formatted')
+    WRITE(1,nml=cyl_params)
     CLOSE(1)
-    kz = nz/(5.*ar)
-    DO nq = -10,10,2
-      Bt0 = 1./(-mt+nq/5.1)*(Bz0*nz)/5.
-      WRITE(*,nml=cyl_params)
-      CALL bspline_deriv()
-    ENDDO
-  ENDIF
-  IF (hermite) THEN
-    WRITE (*,*) 'With Hermite elements.'
-    CALL hermite_elements()
-  ENDIF
-  WRITE (*,*) 'Alfven range (approx):', alfven_range((/0.,ar/))
+    WRITE(*,nml=cyl_params)
+    IF (spline) THEN
+      CALL bspline_deriv()      
+    ELSE 
+      CALL linear_const()
+    ENDIF
+  ENDDO
+  CALL cpu_time(t2)
+  WRITE (0,*) 'Time taken: ', t2-t1, ' seconds.'
+  WRITE (0,*) 'Time taken by EV solver: ',st, 'seconds.'
+  WRITE (0,*) 'Time taken to assemble matrices: ',at, 'seconds.'
+  WRITE (0,*) 'Time taken to integrate matrix elements: ',it, 'seconds.'
 CONTAINS
   SUBROUTINE linear_const()
     IMPLICIT NONE
@@ -162,6 +98,7 @@ CONTAINS
     A = 0.
     B = 0.
     k = 1
+    CALL cpu_time(at1)
     DO i=lower(k),upper(k)
       l = 1
       DO j=i,min(i+phi(i)%extent(2),upper(l))
@@ -230,6 +167,8 @@ CONTAINS
         IF ((i.ne.j).and.(tempA.ne.0.))  B(3*(j-lower(k))+k,3*(i-lower(l))+l) = tempA
       ENDDO
     ENDDO
+    CALL cpu_time(at2)
+    at = at+at2-at1
     IF(verbose) THEN
       OPEN(1,status='replace',file='lin_A.txt')
       WRITE (1,*) 'A='
@@ -242,62 +181,16 @@ CONTAINS
     ENDIF
     C=A(:,:)
     D=B(:,:)
+    CALL cpu_time(st1)
     CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
-    !WRITE (*,*) 'INFO =', INFO
-    !WRITE (*,*) 'real(ALPHA) ='
-    !WRITE (*,'(g)') ALPHAR
-    !WRITE (*,*) 'BETA ='
-    !WRITE (*,'(g)') BETA
-    !WRITE (*,*) 'real(LAMBDA) = '
-    !WRITE (*,'(g)') (ALPHAR)/BETA
-    !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
-    lambda = sort(ALPHAR/BETA,rev=.true.)
-    IF(.not.homo) THEN
-      WRITE (*,*) 'alfven range = ', alfven_range(grid)
-      WRITE (*,*) 'slow_inf range = ', slow_inf_range(grid)
-      WRITE (*,*) 'Lambda = '
-      WRITE (*,'(g)') lambda
-    ENDIF
-    slow_inf = minval(slow_inf_range(grid))
-    !WRITE (*,*) '(real(LAMBDA) - slow_inf)/slow_inf= '
-    slow = sort(((ALPHAR)/BETA-slow_inf)/slow_inf,rev=.true.,inds=inds)
-    IF (slow_evals) WRITE(2,FMTR) slow(NN-nphi+1:NN)
-    WRITE (*,*) '(lambda-slow_inf)/slow_inf = '
-    DO i=1,NN
-      !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
-      WRITE (*,'(g)')  slow(i)
-    ENDDO
-    WRITE (*,*) ' '
-    !WRITE (*,*) 'k^2 Bz(grid)^2/rho(grid) = '
-    !WRITE (*,'(g)') kz**2*(Bz(grid))**2/(rho(grid))
-    !WRITE (*,*) 'B V1 - L1 A V1='
-    pick_val = NN
-    !WRITE (*,'(g,g)') matmul(D,VR(:,pick_val))-(ALPHAR(pick_val)+(0,1)*ALPHAI(pick_val))/BETA(pick_val)*matmul(C,VR(:,pick_val))
-
-    IF(slow_evecs.and.(.not.slow_evals)) THEN
-      OPEN (1, status='replace',file='lin_slow_EVs.txt')
-      WRITE (1,'(i)') size(grid)-1
-      WRITE (1,'(i)') size(phi)
-      DO i=1,size(grid)-1
-        WRITE (1,'(g)') (grid(i)+grid(i+1))/2.
-      ENDDO
-      DO j=size(phi)-1,0,-1
-        WRITE(1,*) ''  
-        DO i=1,size(grid)-1
-          WRITE (1,'(g)') sum(VR(3::3,inds(NN-j))*val(chi,(grid(i)+grid(i+1))/2))
-        ENDDO    
-      ENDDO
-      CLOSE(1)
-    ENDIF
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    pick_val = NN
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    ind = minloc(abs(ALPHAR/BETA-0.513e-04))
-    !WRITE (*,*) 'Lambda(',ind(1),') = ',ALPHAR(ind(1))/BETA(ind(1)) 
-    !WRITE (*,'(g)') (VR(2::3,ind(1)))
+    CALL cpu_time(st2)
+    st = st+st2-st1
+    CALL get_id_num()
+    CALL output_params(at2-at1,st2-st1)
+    CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
+    CALL output_evecs_linconst(phi,psi,chi,grid,VR)
   END SUBROUTINE linear_const
+  
   SUBROUTINE bspline_deriv()
     IMPLICIT NONE
     REAL(r8), DIMENSION(N):: grid!, slow!, slow_sort
@@ -319,53 +212,18 @@ CONTAINS
     grid(1:N) = (/ (i*ar/(N-1), i=0,N-1) /)
     xgrid = (/ (i*ar/real(size(xgrid)-1), i=0,size(xgrid)-1) /)
     nphi =  size(phi); npsi = size(psi); nchi = size(chi)
-    !CALL init(phi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),p3=grid(1),p4=grid(2))
-    !CALL init(phi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),RendZero=.true.)
-    !CALL init(phi(0),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),RendZero=.true.)
-    !CALL init(phi(1),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),LendZero=.true.)
-    !CALL init(phi(0),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.)
-    !CALL init(phi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.)    
+
     CALL init(phi(0),grid(1),p3=grid(2),LendZero=.true.)
     CALL init(phi(1),grid(1),p3=grid(2),p4=grid(3),LendZero=.true.)
     CALL init(phi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),LendZero=.true.)
     CALL init(phi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N))
     CALL init(phi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),RendZero=.true.)
     CALL init(phi(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.)
-    !CALL init(phi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
-    !CALL init(psi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),&
-    !& p3=grid(1),p4=grid(2),deriv=psi_deriv)
-    !CALL init(psi(0),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=psi_deriv,RendZero=.true.)
-    !CALL init(psi(1),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=psi_deriv,LendZero=.true.)
-    !CALL init(psi(0),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),deriv=psi_deriv,RendZero=.true.)    
-    !CALL init(psi(2),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv)
-    !CALL init(psi(0),grid(1),p3=grid(2),deriv=psi_deriv,LendZero=.true.)
-    !CALL init(psi(1),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv,LendZero=.true.)
-    !CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=psi_deriv,LendZero=.true.)
-    !CALL init(psi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=psi_deriv)
-    !CALL init(psi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=psi_deriv,RendZero=.true.)!)
-    !CALL init(psi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=psi_deriv,RendZero=.true.)
+  
     psi = phi
     psi%deriv = psi_deriv
-    !CALL init(psi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
-    !CALL init(chi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),&
-    !& p3=grid(1),p4=grid(2),deriv=chi_deriv)
-    !CALL init(chi(0),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=chi_deriv,RendZero=.true.)
-    !CALL init(chi(1),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=chi_deriv,LendZero=.true.)
-    !CALL init(chi(0),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),deriv=chi_deriv,RendZero=.true.)    
-    !CALL init(chi(2),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv)
-    !CALL init(chi(0),grid(1),p3=grid(2),deriv=chi_deriv,LendZero=.true.)
-    !CALL init(chi(1),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv,LendZero=.true.)
-    !CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=chi_deriv,LendZero=.true.)
-    !CALL init(chi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=chi_deriv)
-    !CALL init(chi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=chi_deriv,RendZero=.true.)
-    !CALL init(chi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=chi_deriv,RendZero=.true.)
     chi=psi
     chi%deriv = chi_deriv
-    !CALL init(chi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
 
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
     NN = size(phi)+size(psi)+size(chi)
@@ -377,6 +235,7 @@ CONTAINS
     A = 0.
     B = 0.
     k = 1
+    CALL cpu_time(at1)
     DO i=lower(k),upper(k)
       l = 1
       DO j=i,min(i+3,upper(l))
@@ -445,6 +304,8 @@ CONTAINS
         IF ((i.ne.j))  B(3*(j-lower(k))+k,3*(i-lower(l))+l) = tempA
       ENDDO
     ENDDO
+    CALL cpu_time(at2)
+    at = at+at2-at1
     IF(verbose) THEN
       OPEN(1,status='replace',file='A.txt')
       WRITE (1,*) 'A='
@@ -457,342 +318,148 @@ CONTAINS
     ENDIF
     C=A(:,:)
     D=B(:,:)
+    CALL cpu_time(st1)
     CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
-    !WRITE (*,*) 'INFO =', INFO
-    !WRITE (*,*) 'real(ALPHA) ='
-    !WRITE (*,'(g)') ALPHAR
-    !WRITE (*,*) 'BETA ='
-    !WRITE (*,'(g)') BETA
-    !WRITE (*,*) 'real(LAMBDA) = '
-    !WRITE (*,'(g)') (ALPHAR)/BETA
-    !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
-    slow_inf = minval(slow_inf_range(grid))
-    !WRITE (*,*) '(real(LAMBDA) - slow_inf)/slow_inf= '
-    lambda = sort(ALPHAR/BETA,rev=.true.)
-    IF(.not.homo) THEN
-      WRITE (*,*) 'alfven range = ', alfven_range(grid)
-      WRITE (*,*) 'slow_inf range = ', slow_inf_range(grid)
-      WRITE (*,*) 'Lambda = '
-      WRITE (*,'(g)') lambda
-    ENDIF
-    slow = sort(((ALPHAR)/BETA-slow_inf)/slow_inf,rev=.true.,inds=inds)
-    IF (slow_evals) THEN
-      IF(homo) WRITE(2,FMTR) slow(NN-nphi+1:NN)
-      IF(inhomo) THEN
-        WRITE (2,'(g)') eps
-        WRITE (2,'(g)') (maxval(slow_inf_range(grid))-slow_inf)/slow_inf
-        WRITE (2,'(i)') nphi
-        WRITE (2,'(g)') slow(NN-nphi+1:NN)
-        WRITE (2,*) ''
-      ENDIF
-    ENDIF
-    WRITE (*,*) 'inds =', inds
-    DO i=1,NN
-      !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
-
-      WRITE (*,'(g,a,g)')  slow(i), ' = ', (ALPHAR(inds(i))/BETA(inds(i))-slow_inf)/slow_inf
-    ENDDO
-    WRITE (*,*) ' '
-    !WRITE (*,*) 'k^2 Bz(grid)^2/rho(grid) = '
-    !WRITE (*,'(g)') kz**2*(Bz(grid))**2/(rho(grid))
-    !WRITE (*,*) 'B V1 - L1 A V1='
-    pick_val = NN
-    !WRITE (*,'(g,g)') matmul(D,VR(:,pick_val))-(ALPHAR(pick_val)+(0,1)*ALPHAI(pick_val))/BETA(pick_val)*matmul(C,VR(:,pick_val))
-    IF(slow_evecs.and.(.not.slow_evals)) THEN
-      IF(homo) THEN
-        OPEN (1, status='replace',file='spline_slow_EVs.txt')
-        WRITE (1,'(i)') size(xgrid)
-        WRITE (1,'(i)') size(phi)
-        DO i=1,size(xgrid)
-          WRITE (1,'(g)') xgrid(i)
-        ENDDO
-        DO j=size(phi)-1,0,-1
-          WRITE(1,*) ''  
-          DO i=1,size(xgrid)
-            WRITE (1,'(g)') sum(VR(3::3,inds(NN-j))*val(chi,xgrid(i)))
-          ENDDO    
-        ENDDO
-        CLOSE(1)   
-      ENDIF
-    ENDIF
-    
-    IF(alfven_evecs) THEN
-      ind = inds(nphi+nphi/2)!minloc(abs(ALPHAR/BETA-0.513e-04))
-      WRITE (*,*) 'Lambda(',ind(1),') = ',ALPHAR(ind(1))/BETA(ind(1)) 
-      WRITE (*,'(g)') (VR(2::3,ind(1)))
-      WRITE (3,'(i)') size(xgrid)
-      WRITE (3,'(i)') 1
-      DO i=1,size(xgrid)
-        WRITE (3,'(g)') xgrid(i)
-      ENDDO
-      WRITE(3,*) ''  
-      DO i=1,size(xgrid)
-        WRITE (3,'(g)') sum(VR(2::3,ind(1))*val(psi,xgrid(i)))
-      ENDDO 
-      WRITE (3,*) ''
-      WRITE (3,'(i)') size(grid)
-      WRITE (3,'(g)') 0.1D1/rho0/lambda(ind(1))/eps*sqrt(rho0*lambda(ind(1))*eps*(rho0*lambda(ind(1))-kz**2*Bz0**2))*ar
-
-      DO i=1,size(grid)
-        WRITE (3,'(g)') grid(i)
-      ENDDO
-      WRITE(3,*) ''  
-      DO i=1,size(grid)
-        WRITE (3,'(g)') sum(VR(2::3,ind(1))*val(psi,grid(i)))
-      ENDDO 
-      WRITE (3,*) ''
-    ENDIF
-    !xi_1 = sum(VR(1::3,pick_val)*val(phi,areps))
-    !xi_2 = sum(VR(2::3,pick_val)*val(psi,areps))
-    !xi_3 = sum(VR(3::3,pick_val)*val(chi,areps))
-    !WRITE (*,*) 'xi_r(ar) = ', xi_1, 'xi_theta(ar) = ', (0,1)/mt*(xi_1-ar*xi_2), 'xi_z(ar) = ', -(0,1)*xi_3/kz
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    pick_val = NN
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    
+    CALL cpu_time(st2)
+    st = st+st2-st1
+    CALL get_id_num()
+    CALL output_params(at2-at1,st2-st1)
+    CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
+    CALL output_evecs_spline(phi,psi,chi,grid,VR)    
   END SUBROUTINE bspline_deriv
   
-  SUBROUTINE assemble(A,B)
-    USE local
-    REAL(r8), DIMENSION(:,:), INTENT(OUT) :: A,B
-    A = 0.
-    B = 0.
-  END SUBROUTINE assemble
-  
-  SUBROUTINE hermite_elements()
-    IMPLICIT NONE
-    REAL(r8), DIMENSION(N):: grid!, slow!, slow_sort
-    REAL(r8), DIMENSION(N-1) :: xi_1, xi_2, xi_3
-    TYPE(bspline), DIMENSION(2:2*(N)-1) :: phi
-    TYPE(bspline), DIMENSION(2:2*(N)-1) :: psi, chi 
-    REAL(r8), DIMENSION(size(phi)+size(psi)+size(chi),size(phi)+size(psi)+size(chi)):: A, B, C, D, VR
-    REAL(r8), DIMENSION(1,size(phi)+size(psi)+size(chi)) :: VL
-    INTEGER ::  inds(size(phi)+size(psi)+size(chi))
-    REAL(r8), DIMENSION(size(phi)+size(psi)+size(chi)) :: ALPHAR, ALPHAI, BETA, slow, RWORK(8*(size(phi)+size(psi)+size(chi))), WORK(10*(size(phi)+size(psi)+size(chi)))
-    LOGICAL:: psi_deriv, chi_deriv
-    LOGICAL :: Lend0
-    REAL(r8) :: xgrid(N*30)
-    
-  !Initialize the finite elements
-    Lend0 = .true.
-    lower = (/lbound(phi,1), lbound(psi,1), lbound(chi,1)/)
-    upper = (/ubound(phi,1), ubound(psi,1), ubound(chi,1)/) 
-    grid(1:N) = (/ (i*ar/(N-1), i=0,N-1) /)
-    !grid(1) = grid(2)/2.
-    !grid(N) = (grid(1)+grid(2))/2.
-    !grid = sort(grid)
-    xgrid = (/ (i*ar/real(size(xgrid)-1), i=0,size(xgrid)-1) /)
-    !grid(1) = epsilon(grid(2))
-    nphi =  size(phi); npsi = size(psi); nchi = size(chi)
-    
-    !CALL init(phi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),p3=grid(1),p4=grid(2))
-    !CALL init(phi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),RendZero=.true.)
-    !CALL init(phi(0),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),RendZero=.true.)
-    !CALL init(phi(1),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),LendZero=.true.)
-    !CALL init(phi(0),grid(1),p3=grid(2),LendZero=.true.)
-    !CALL init(phi(0),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.)
-    !CALL init(phi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.)    
-    !CALL init(phi(1),grid(1),p3=grid(2),p4=grid(3),LendZero = Lend0)
-    !CALL init(phi(1),grid(1))
-    !CALL init(phi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),LendZero = Lend0)
-    !CALL init(phi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N))
-    !CALL init(phi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),RendZero=.true.)
-    CALL init(phi(2),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),LendZero=.true.)
-    !CALL init(phi(2),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),RendZero=.true.)
-    CALL init(phi(3:2*(N-1):2),grid(2:N-1), p2=grid(1:N-2),p3=grid(3:N), LendZero=.true.)
-    CALL init(phi(4:2*(N-1):2),grid(2:N-1), p2=grid(1:N-2),p3=grid(3:N), RendZero=.true.)
-    CALL init(phi(2*(N)-1),grid(N), p2=grid(N-1), p3=grid(N)+grid(N)-grid(N-1), RendZero=.true.)
-    !CALL init(phi(2*(N)),grid(N), p2=grid(N-1), p3=grid(N)+grid(N)-grid(N-1), RendZero=.true.)
-    
-    
-    !CALL init(phi(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.)
-    !CALL init(phi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
-    !CALL init(psi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),&
-    !& p3=grid(1),p4=grid(2),deriv=psi_deriv)
-    !CALL init(psi(0),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=psi_deriv,RendZero=.true.)
-    !CALL init(psi(1),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=psi_deriv,LendZero=.true.)
-    !CALL init(psi(0),grid(1),p3=grid(2),deriv=psi_deriv,LendZero=.true.)
-    !CALL init(psi(0),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),deriv=psi_deriv,RendZero=.true.)    
-    !CALL init(psi(2),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv)
-    !CALL init(psi(1),grid(1),p3=grid(2),p4=grid(3),deriv=psi_deriv,LendZero = Lend0)
-    !CALL init(psi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=psi_deriv,LendZero = Lend0)
-    !CALL init(psi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=psi_deriv)
-    !CALL init(psi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=psi_deriv,RendZero=.true.)!)
-    CALL init(psi(2),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),LendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(2),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),RendZero=.true.,deriv=psi_deriv)
-    CALL init(psi(3:2*(N-1):2),grid(2:N-1), p2=grid(1:N-2),p3=grid(3:N), LendZero=.true.,deriv=psi_deriv)
-    CALL init(psi(4:2*(N-1):2),grid(2:N-1), p2=grid(1:N-2),p3=grid(3:N), RendZero=.true.,deriv=psi_deriv)
-    CALL init(psi(2*(N)-1),grid(N), p2=grid(N-1), p3=grid(N)+grid(N)-grid(N-1), RendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(2*(N)),grid(N), p2=grid(N-1), p3=grid(N)+grid(N)-grid(N-1), RendZero=.true.,deriv=psi_deriv)
-    !CALL init(psi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=psi_deriv,RendZero=.true.)
-    !CALL init(psi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
-    !CALL init(chi(0),grid(1)-grid(2)+grid(1),p1=grid(1)-3*(grid(2)+grid(1)),p2=grid(1)-2*(grid(2)+grid(1)),&
-    !& p3=grid(1),p4=grid(2),deriv=chi_deriv)
-    !CALL init(chi(0),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=chi_deriv,RendZero=.true.)
-    !CALL init(chi(1),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),deriv=chi_deriv,LendZero=.true.)
-    !CALL init(chi(0),grid(1),p3=grid(2),deriv=chi_deriv,LendZero=.true.)
-    !CALL init(chi(0),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(2),grid(3),p1=grid(1),p2=grid(2),p3=grid(4),deriv=chi_deriv,RendZero=.true.)    
-    !CALL init(chi(2),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv)
-    !CALL init(chi(1),grid(1),p3=grid(2),p4=grid(3),deriv=chi_deriv,LendZero = Lend0)
-    !CALL init(chi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=chi_deriv,LendZero = Lend0)
-    !CALL init(chi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=chi_deriv)
-    !CALL init(chi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),deriv=chi_deriv,RendZero=.true.)
-    CALL init(chi(2),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),LendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(2),grid(1),p2=grid(1)-grid(2)+grid(1),p3=grid(2),RendZero=.true.,deriv=chi_deriv)
-    CALL init(chi(3:2*(N-1):2),grid(2:N-1), p2=grid(1:N-2),p3=grid(3:N), LendZero=.true.,deriv=chi_deriv)
-    CALL init(chi(4:2*(N-1):2),grid(2:N-1), p2=grid(1:N-2),p3=grid(3:N), RendZero=.true.,deriv=chi_deriv)
-    CALL init(chi(2*(N)-1),grid(N), p2=grid(N-1), p3=grid(N)+grid(N)-grid(N-1), RendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(2*(N)),grid(N), p2=grid(N-1), p3=grid(N)+grid(N)-grid(N-1), RendZero=.true.,deriv=chi_deriv)
-    !CALL init(chi(N),grid(N),p1=grid(N-2),p2=grid(N-1),deriv=chi_deriv,RendZero=.true.)
-    !CALL init(chi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
-
-  !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    NN = size(phi)+size(psi)+size(chi)
-    LWORK=10*NN
-    LDVR = NN
-    WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
-    WRITE(FMTR,'(a1,I,a)') '(',nphi,'g20.12)'
-
-    A = 0.
-    B = 0.
-    k = 1
-    DO i=lower(k),upper(k)
-      l = 1
-      DO j=i,min(i+phi(i)%extent(2),upper(l))
-        temp = (1.+1./mt**2)*int_func(phi(i),phi(j),rho)
-        A(3*(i-lower(k))+k,3*(j-lower(l))+l)  = temp
-        IF ((i.ne.j).and.(temp.ne.0.))  A(3*(j-lower(k))+k,3*(i-lower(l))+l) = temp
-        tempA = int_func(phi(i),phi(j),W11A,deriv1=.true.,deriv2=.true.)
-        tempB = int_func(phi(i),phi(j),W11B,deriv1=.true.)+int_func(phi(i),phi(j),W11B,deriv2=.true.)
-        tempC = int_func(phi(i),phi(j),W11C)
-        temp = tempA+tempB+tempC
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = temp
-        IF ((i.ne.j).and.(temp.ne.0.))  B(3*(j-lower(k))+k,3*(i-lower(l))+l) = temp
-      ENDDO
-      l = 2
-      DO j=max(i-phi(i)%extent(1),lower(l)),min(i+phi(i)%extent(2),upper(l))
-        A(3*(i-lower(k))+k,3*(j-lower(l))+l) = -1./mt**2 * int_func(psi(j),phi(i),K12)
-        tempA = int_func(psi(j),phi(i),W12A,deriv2=.true.)
-        tempB = int_func(psi(j),phi(i),W12B)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = tempA+tempB
-      ENDDO
-      l = 3
-      DO j=max(i-phi(i)%extent(1),lower(l)),min(i+phi(i)%extent(2),upper(l))
-        !A(3*(i-lower(k))+k,3*(j-lower(l))+l) = -1./(kz*mt) * int_func(chi(j),phi(i),rho)
-        tempA = int_func(chi(j),phi(i),W13A,deriv2=.true.)
-        tempB = int_func(chi(j),phi(i),W13B)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = tempA+tempB
-      ENDDO
+  SUBROUTINE plot_equilibrium
+    INTEGER, PARAMETER :: num_pts = 300
+    INTEGER :: i
+    REAL(r8), DIMENSION(num_pts) :: grid, pressure, zb, tb, density, pv, zv, p_prime, Bt_prime, Bz_prime, safety
+    grid = (/ (i*ar/(num_pts-1), i=0,num_pts-1) /)
+    WRITE (*,nml=cyl_params)
+    WRITE (*,'(a,i)') 'Plotting equilib = ',equilib
+    WRITE (*,*) 'Eqilibrium condition at grid points='
+    WRITE (*,'(g)') equilibrium(grid(2:))
+    pressure = P(grid)
+    tb = Bt(grid)
+    zb = Bz(grid)
+    density = rho(grid)
+    pv = 0
+    zv = 0
+    safety = q(grid)
+    p_prime = diff(P,grid)
+    Bz_prime = diff(Bz,grid)
+    Bt_prime = diff(Bt,grid)
+    WRITE (*,'(5(a20))') 'pressure','p_prime', 'Bz*Bz_prime', 'Bt*Bt_prime', 'Bt**2/r'
+    DO i=2,size(grid)
+      WRITE (*,'(5(g20.10))') pressure(i), p_prime(i), zb(i)*Bz_prime(i), tb(i)*Bt_prime(i), tb(i)**2/grid(i)
     ENDDO
-    k = 2
-    DO i=lower(k),upper(k)
-      l = 1
-      DO j=max(i-psi(i)%extent(1),lower(l)),min(i+psi(i)%extent(2),upper(l))
-        A(3*(i-lower(k))+k,3*(j-lower(l))+l) = A(3*(j-lower(l))+l,3*(i-lower(k))+k)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = B(3*(j-lower(l))+l,3*(i-lower(k))+k)
-      ENDDO
-      l = 2
-      DO j=i,min(i+psi(i)%extent(2),upper(l))
-        temp = 1./mt**2 * int_func(psi(i),psi(j),K22)
-        A(3*(i-lower(k))+k,3*(j-lower(l))+l) = temp
-        IF ((i.ne.j).and.(temp.ne.0.))  A(3*(j-lower(k))+k,3*(i-lower(l))+l) = temp
-        tempA = int_func(psi(i),psi(j),W22A)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = tempA
-        IF ((i.ne.j).and.(tempA.ne.0.)) B(3*(j-lower(k))+k,3*(i-lower(l))+l) = tempA
-      ENDDO
-      l = 3
-      DO j=max(i-psi(i)%extent(1),lower(l)),min(i+psi(i)%extent(2),upper(l))
-        !A(3*(i-lower(k))+k,3*(j-lower(l))+l) = 1/(kz*mt) * int_func(psi(i),chi(j),K12)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = int_func(psi(i),chi(j),W23A)
-      ENDDO
+    WRITE(filename,'(a,i0,a)') 'equilib',equilib,'.txt'
+    OPEN(1,file=filename,status='replace')
+    DO i=1,num_pts
+      WRITE (1,'(g,g,g,g,g,g,g,g)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i), safety(i)
     ENDDO
-    k = 3
-    DO i=lower(k),upper(k)
-      l = 1
-      DO j=max(i-chi(i)%extent(1),lower(l)),min(i+chi(i)%extent(2),upper(l))
-        !A(3*(i-lower(k))+k,3*(j-lower(l))+l) = A(3*(j-lower(l))+l,3*(i-lower(k))+k)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = B(3*(j-lower(l))+l,3*(i-lower(k))+k)
-      ENDDO
-      l=2
-      DO j=max(i-chi(i)%extent(1),lower(l)),min(i+chi(i)%extent(2),upper(l))
-        !A(3*(i-lower(k))+k,3*(j-lower(l))+l) = A(3*(j-lower(l))+l,3*(i-lower(k))+k)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = B(3*(j-lower(l))+l,3*(i-lower(k))+k)
-      ENDDO
-      l = 3
-      DO j=i,min(i+chi(i)%extent(2),upper(l))
-        temp = 1/kz**2 * int_func(chi(i),chi(j),rho)
-        A(3*(i-lower(k))+k,3*(j-lower(l))+l) = temp
-        IF ((i.ne.j).and.(temp.ne.0.))  A(3*(j-lower(k))+k,3*(i-lower(l))+l) = temp
-        tempA = int_func(chi(i),chi(j),W33A)
-        B(3*(i-lower(k))+k,3*(j-lower(l))+l) = tempA
-        IF ((i.ne.j).and.(tempA.ne.0.))  B(3*(j-lower(k))+k,3*(i-lower(l))+l) = tempA
-      ENDDO
-    ENDDO
-    !B(NN,NN) = 1.
-    !WRITE (*,*) 'A='
-    !WRITE (*,FMT) transpose(A)
-    !WRITE (*,*) 'B='
-    !WRITE (*,FMT) transpose(B)
-    !WRITE (*,*) 'W11B(0,1) = ', W11B((/0.,1./))
-    C=A(:,:)
-    D=B(:,:)
-    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
-    !WRITE (*,*) 'INFO =', INFO
-    !WRITE (*,*) 'real(ALPHA) ='
-    !WRITE (*,'(g)') ALPHAR
-    !WRITE (*,*) 'BETA ='
-    !WRITE (*,'(g)') BETA
-    !WRITE (*,*) 'real(LAMBDA) = '
-    !WRITE (*,'(g)') (ALPHAR)/BETA
-    !WRITE (*,*) 's^2 = ', gamma*P(grid)/(Bz(grid))**2
-    slow_inf = minval(slow_inf_range(grid))
-    !WRITE (*,*) '(real(LAMBDA) - slow_inf)/slow_inf= '
-    slow = sort(((ALPHAR)/BETA-slow_inf)/slow_inf,rev=.true.,inds=inds)
-    WRITE (*,*) 'inds =', inds
-    DO i=1,NN
-      !IF (slow(i) .lt. (((minval(kz**2 *Bz0**2/rho((/0./))))*0.9-slow_inf)/slow_inf)) 
-
-      WRITE (*,'(g,a,g)')  slow(i), ' = ', (ALPHAR(inds(i))/BETA(inds(i))-slow_inf)/slow_inf
-    ENDDO
-    WRITE (*,*) ' '
-    !WRITE (*,*) 'k^2 Bz(grid)^2/rho(grid) = '
-    !WRITE (*,'(g)') kz**2*(Bz(grid))**2/(rho(grid))
-    !WRITE (*,*) 'B V1 - L1 A V1='
-    pick_val = NN
-    !WRITE (*,'(g,g)') matmul(D,VR(:,pick_val))-&
-    !&  (ALPHAR(pick_val)+(0,1)*ALPHAI(pick_val))/BETA(pick_val)*matmul(C,VR(:,pick_val))
-    IF(slow_evecs) THEN
-      OPEN (1, status='replace',file='hermite_slow_EVs.txt')
-      WRITE (1,'(i)') size(xgrid)
-      WRITE (1,'(i)') size(phi)
-      DO i=1,size(xgrid)
-        WRITE (1,'(g)') xgrid(i)
-      ENDDO
-      DO j=size(phi)-1,0,-1
-        WRITE(1,*) ''  
-        DO i=1,size(xgrid)
-          WRITE (1,'(g)') sum(VR(3::3,inds(NN-j))*val(chi,xgrid(i)))
-        ENDDO    
-      ENDDO
+    CLOSE(1)
+  END SUBROUTINE plot_equilibrium
+  SUBROUTINE get_id_num()
+    IF(id_num > 0) THEN
+      WRITE (filename,'(a,i0,a)') 'equilib',equilib,'.num'
+      OPEN(1,file=filename,status='old')
+      READ(1,'(i)') id_num
+      CLOSE(1)
+      OPEN(1,file=filename,status='replace')
+      WRITE(1,'(i0)') id_num+1
       CLOSE(1)
     ENDIF
-    !xi_1 = sum(VR(1::3,pick_val)*val(phi,areps))
-    !xi_2 = sum(VR(2::3,pick_val)*val(psi,areps))
-    !xi_3 = sum(VR(3::3,pick_val)*val(chi,areps))
-    !WRITE (*,*) 'xi_r(ar) = ', xi_1, 'xi_theta(ar) = ', (0,1)/mt*(xi_1-ar*xi_2), 'xi_z(ar) = ', -(0,1)*xi_3/kz
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    pick_val = NN
-    !WRITE (*,*) 'Lambda(',pick_val,') - slow_inf = ', ALPHAR(pick_val)/BETA(pick_val) - slow_inf
-    !WRITE (*,'(g)') VR(3::3,pick_val)
-    ind = minloc(abs(ALPHAR/BETA-0.513e-04))
-    !WRITE (*,*) 'Lambda(',ind(1),') = ',ALPHAR(ind(1))/BETA(ind(1)) 
-    !WRITE (*,'(g)') (VR(2::3,ind(1)))
-  END SUBROUTINE hermite_elements
+  END SUBROUTINE get_id_num
+  SUBROUTINE output_params(assemble_t,solve_t)
+    REAL(r8), INTENT(IN) :: assemble_t,solve_t
+    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib', equilib,'/',id_num,'.dat'
+    WRITE(11,*) filename
+    OPEN(1,file=filename,status='replace')
+    IF (spline) THEN
+      WRITE(1,'(a)') 'spline'
+    ELSE 
+      WRITE(1,'(a)') 'linconst'
+    ENDIF
+    WRITE(1,'(i)') N, NN, mt, equilib, num
+    WRITE(1,'(g)') assemble_t, solve_t, kz, ar, rho0
+    SELECT CASE (equilib)
+      CASE(1)
+        WRITE(1,'(g)') Bz0, Bt0, s2
+      CASE(2)
+        WRITE(1,'(g)') Bz0, Bt0, s2, eps
+      CASE(3)
+        WRITE(1,'(g)') Bz0, Bt0
+        WRITE(1,'(i)') nz
+      CASE(4)
+        WRITE(1,'(g)') P0, P1, lambd
+      CASE(5)
+        WRITE(1,'(g)') Bz0, Bt0
+        WRITE(1,'(i)') nz
+    ENDSELECT
+    CLOSE(1)
+  END SUBROUTINE output_params
+  SUBROUTINE output_evals(evalsr,evalsi)
+    REAL(r8), DIMENSION(:), INTENT(IN) :: evalsr, evalsi
+    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.evalsr'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,'(g)') evalsr
+    CLOSE(1)
+    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.evalsi'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,'(g)') evalsi
+    CLOSE(1)    
+  END SUBROUTINE output_evals
+  SUBROUTINE output_evecs_spline(phi1,phi2,phi3,grid,VR)
+    TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3
+    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
+    TYPE(bspline), DIMENSION(size(phi1),3) :: phi
+    INTEGER :: N , i, j, k
+    CHARACTER(LEN=30) FMT
+    phi = reshape((/phi1,phi2,phi3/),(/size(phi1),3/))
+    N = size(grid)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
+    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.grid'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,FMT) (grid(i),',',i=1,size(grid))
+    CLOSE(1)
+    DO j=1,3
+      WRITE(filename,'(3(a,i0))') 'output_cyl/equilib',equilib,'/',id_num,'.evecs',j
+      OPEN(1,file=filename,status='new')
+      DO k=1,size(VR(1,:))
+        WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
+      ENDDO
+      CLOSE(1)
+    ENDDO 
+  END SUBROUTINE output_evecs_spline
+  SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,grid,VR)
+    TYPE(linear), DIMENSION(:), INTENT(IN) :: phi1
+    TYPE(constant), DIMENSION(:), INTENT(IN) :: phi2, phi3
+    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
+    TYPE(constant), DIMENSION(size(phi2),2:3) :: phi
+    INTEGER :: N , i, j, k
+    CHARACTER(LEN=30) FMT
+    phi = reshape((/phi2,phi3/),(/size(phi1),3/))
+    N = size(grid)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
+    WRITE(filename,'(2(a,i0),a)') 'output_cyl/equilib',equilib,'/',id_num,'.grid'
+    OPEN(1,file=filename,status='new')
+    WRITE(1,FMT) (grid(i),',',i=1,size(grid))
+    CLOSE(1)
+    j=1
+    WRITE(filename,'(3(a,i0))') 'output_cyl/equilib',equilib,'/',id_num,'.evecs',j
+    OPEN(1,file=filename,status='new')
+    DO k=1,size(VR(1,:))
+      WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi1,grid(i))),',' , i=1,size(grid) )
+    ENDDO
+    CLOSE(1)
+    DO j=2,3
+      WRITE(filename,'(3(a,i0))') 'output_cyl/equilib',equilib,'/',id_num,'.evecs',j
+      OPEN(1,file=filename,status='new')
+      DO k=1,size(VR(1,:))
+        WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
+      ENDDO
+      CLOSE(1)
+    ENDDO 
+  END SUBROUTINE output_evecs_linconst
 END PROGRAM cyl

@@ -39,7 +39,7 @@ test_nag.o: ${SRCDIR}/test_nag.f95
 plot_equilibrium.o: ${SRCDIR}/plot_equilibrium.f95
 	${FC} $? ${FCOPTS} -c
 cyl: ${OBJ}
-	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe
+	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe ${NAG_LIBDIR} ${NAG_LIBS}
 vcyl: ${VOBJ}
 	${FC} ${VOBJ} ${FCOPTS} -o vcyl.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
 testfe: local.o ${FEMOD}.o ${CYLFUNCS}.o ${TESTFE}.o
