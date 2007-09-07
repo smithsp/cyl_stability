@@ -3,7 +3,7 @@ PROGRAM cyl
   USE cyl_funcs_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: epsi, ref, start, fin, id_num
+  INTEGER :: epsi, ref, start, fin
   LOGICAL :: spline, psi_deriv, chi_deriv
   CHARACTER(LEN=40) :: filename, date, time
 !The following are all used in subroutines below and should not be used in the main (cyl) program
@@ -19,7 +19,6 @@ PROGRAM cyl
   verbose = .false.
   psi_deriv = .true.
   chi_deriv = .true.
-  id_num = 1
   CALL cpu_time(t1)
   OPEN(1,file='control_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
@@ -410,7 +409,7 @@ CONTAINS
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     DO j=1,3
-      WRITE(filename,'(2(a,i0))') 'output_cyl/',id_num,'.evecs',j
+      WRITE(filename,'(2(a,i0))') 'output_cyl/',num,'.evecs',j
       OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
         WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
@@ -426,7 +425,7 @@ CONTAINS
     TYPE(constant), DIMENSION(size(phi2),2:3) :: phi
     INTEGER :: N , i, j, k
     CHARACTER(LEN=30) FMT
-    phi = reshape((/phi2,phi3/),(/size(phi1),3/))
+    phi = reshape((/phi2,phi3/),(/size(phi2),2/))
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     WRITE(filename,'(a,i0,a)') 'output_cyl/', num,'.grid'
