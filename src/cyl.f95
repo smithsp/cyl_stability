@@ -1,16 +1,17 @@
 PROGRAM cyl
   USE local
   USE cyl_funcs_module
+  USE cyl_matrix_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: epsi, ref, start, fin
+  INTEGER :: N, ref, start, fin, num
   LOGICAL :: spline, psi_deriv, chi_deriv
   CHARACTER(LEN=40) :: filename, date, time
 !The following are all used in subroutines below and should not be used in the main (cyl) program
-  INTEGER :: N, i, j, k, l, nphi, npsi, nchi, INFO, num
+  INTEGER :: NN, i, j, k, l, nphi, npsi, nchi, INFO
   REAL(r8) :: temp, tempA, tempB, tempC, at1, at2, st1, st2, t1, t2
   CHARACTER(LEN=30) :: FMT, FMTR
-  INTEGER :: NN
+  INTEGER :: 
   INTEGER :: LDVL=1, LWORK, LDVR, lower(3), upper(3)
   
   NAMELIST /control_params/  ref, start, fin, verbose
@@ -20,6 +21,11 @@ PROGRAM cyl
   psi_deriv = .true.
   chi_deriv = .true.
   CALL cpu_time(t1)
+  it = 0.
+  st = 0.
+  at = 0.
+  st1 = 0.
+  st2 = 0.
   OPEN(1,file='control_params.in',status='old',form='formatted')
   READ(1,nml=control_params)
   CLOSE(1)
@@ -366,7 +372,7 @@ CONTAINS
       WRITE(1,'(a)') 'linconst'
     ENDIF
     WRITE(1,'(i)') N, NN, mt, equilib, num
-    WRITE(1,'(g)') assemble_t, solve_t, kz, ar, rho0
+    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0
     SELECT CASE (equilib)
       CASE(1)
         WRITE(1,'(g)') Bz0, Bt0, s2

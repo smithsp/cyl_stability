@@ -4,6 +4,8 @@ LAPACK=/usr/pppl/lff95/6.20c/lapack-3.0
 LOCAL=local
 FEMOD=finite_elements_module
 CYLFUNCS=cyl_funcs_module
+VCYLFUNCS=vcyl_funcs_module
+CYLMAT=cyl_matrix_module
 VCYLMAT=vcyl_matrix_module
 OBJ=${LOCAL}.o ${SPLINE}.o ${MODEL}.o model_funcs.o
 LIBDIR=-L ${LAPACK} 
@@ -13,8 +15,8 @@ NAG_LIBS = -lnag
 MODDIR = --mod ${NAG_ROOT}/nag_mod_dir
 OUT=model.exe
 TESTFE=test_finite_elements
-OBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o cyl.o
-VOBJ=local.o sort_module.o ${FEMOD}.o ${VCYLMAT}.o vcyl.o
+OBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o cyl.o
+VOBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o ${VCYLFUNCS}.o ${VCYLMAT}.o vcyl.o
 EQOBJ=local.o sort_module.o ${FEMOD}.o ${VCYLMAT}.o 
 SRCDIR=src
 
@@ -25,6 +27,10 @@ sort_module.o: ${SRCDIR}/sort_module.f95
 ${FEMOD}.o: ${SRCDIR}/${FEMOD}.f95
 	${FC} $? ${FCOPTS} -c
 ${CYLFUNCS}.o: ${SRCDIR}/${CYLFUNCS}.f95
+	${FC} $? ${FCOPTS} -c
+${VCYLFUNCS}.o: ${SRCDIR}/${VCYLFUNCS}.f95
+	${FC} $? ${FCOPTS} -c
+${CYLMAT}.o: ${SRCDIR}/${CYLMAT}.f95
 	${FC} $? ${FCOPTS} -c
 ${VCYLMAT}.o: ${SRCDIR}/${VCYLMAT}.f95
 	${FC} $? ${FCOPTS} -c ${NAG_LIBDIR} ${NAG_LIBS}
