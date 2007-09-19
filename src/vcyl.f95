@@ -4,7 +4,7 @@ PROGRAM cyl
   USE finite_elements_module
   USE sort_module
   INTEGER :: ref, start, fin, N, num
-  LOGICAL :: spline, phi2_deriv, phi3_deriv, plot_eq
+  LOGICAL :: spline, phi2_deriv, phi3_deriv
   REAL(r8) :: log_Vz0,  nq
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: NN, ifail1, i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, INFO
@@ -14,7 +14,7 @@ PROGRAM cyl
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, psi_deriv, chi_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp
+  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -80,7 +80,6 @@ CONTAINS
     REAL(r8), DIMENSION(1,3*(N-1)) :: VL
     INTEGER inds(3*size(phi1))
     REAL(r8), DIMENSION(3*(N-1)) :: ALPHAR, ALPHAI, BETA, RWORK(8*3*(N-1)), WORK(10*3*(N-1)), slow, lambda
-    REAL(r8) :: xgrid(N*30)
     
   !Initialize the finite elements
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
@@ -108,18 +107,13 @@ CONTAINS
     & RWORK(8*(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6))), &
     & WORK(10*(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)))
     LOGICAL :: Lend0
-    REAL(r8) :: xgrid(N*30)
  
   !Initialize the finite elements
     Lend0 = .true.
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
     upper = (/ubound(phi1,1), ubound(phi2,1), ubound(phi3,1), ubound(phi4,1), ubound(phi5,1), ubound(phi6,1), ubound(phi1,1), ubound(phi2,1), ubound(phi3,1)/) 
     grid(1:N) = (/ (i*ar/(N-1), i=0,N-1) /)
-    IF(verbose) THEN
-      WRITE (*,*) 'Eqilibrium condition at grid points='
-      WRITE (*,'(g)') equilibrium(grid(2:))
-    ENDIF
-    xgrid = (/ (i*ar/real(size(xgrid)-1), i=0,size(xgrid)-1) /)
+    
     nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
     IF(lower(1).eq.0)   CALL init(phi1(0),grid(1),p3=grid(2),LendZero=.true.)
     IF(lower(1).le.1)   CALL init(phi1(1),grid(1),p3=grid(2),p4=grid(3),LendZero=.true.)
@@ -328,10 +322,6 @@ CONTAINS
     REAL(r8), DIMENSION(N) :: grid, pressure, zb, tb, density, pv, zv, p_prime, Bt_prime, Bz_prime, safety
     num_pts = N
     grid = (/ (i*ar/(num_pts-1), i=0,num_pts-1) /)
-    WRITE (*,nml=cyl_params)
-    WRITE (*,'(a,i)') 'Plotting equilib = ',equilib
-    WRITE (*,*) 'Eqilibrium condition at grid points='
-    WRITE (*,'(g)') equilibrium_V(grid(2:))
     pressure = P(grid)
     tb = Bt(grid)
     zb = Bz(grid)
@@ -342,48 +332,44 @@ CONTAINS
     p_prime = diff(P,grid)
     Bz_prime = diff(Bz,grid)
     Bt_prime = diff(Bt,grid)
-    WRITE (*,'(5(a20))') 'pressure','p_prime', 'Bz*Bz_prime', 'Bt*Bt_prime', 'Bt**2/r'
-    DO i=2,size(grid)
-      WRITE (*,'(5(g20.10))') pressure(i), p_prime(i), zb(i)*Bz_prime(i), tb(i)*Bt_prime(i), tb(i)**2/grid(i)
-    ENDDO
-    WRITE(filename,'(a,i0,a)') 'equilibria/',num,'.txt'
+    WRITE(filename,'(a,i0,a)') 'equilibria_v/',num,'.txt'
+    WRITE (*,'(a,i0,a,a)') 'Writing equilibrium data for run number ',num, ' to ',filename
     OPEN(1,file=filename,status='replace')
     DO i=1,num_pts
       WRITE (1,'(g,g,g,g,g,g,g,g)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i), safety(i)
     ENDDO
     CLOSE(1)
+    IF (verbose) THEN
+      WRITE (*,*) 'Eqilibrium condition at grid points='
+      WRITE (*,'(g)') equilibrium_V(grid(2:))
+      WRITE (*,'(5(a20))') 'pressure','p_prime', 'Bz*Bz_prime', 'Bt*Bt_prime', 'Bt**2/r'
+      DO i=2,size(grid)
+        WRITE (*,'(5(g20.10))') pressure(i), p_prime(i), zb(i)*Bz_prime(i), tb(i)*Bt_prime(i), tb(i)**2/grid(i)
+      ENDDO
+    ENDIF
   END SUBROUTINE plot_equilibrium
 
   SUBROUTINE output_params(assemble_t,solve_t)
     REAL(r8), INTENT(IN) :: assemble_t,solve_t
     WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.dat'
     OPEN(1,file=filename,status='replace')
-    WRITE(1,'(i)') N, NN, mt, equilib, num
-    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, Vz0, epsVz, rho0
-    SELECT CASE (equilib)
-      CASE(1)
-        WRITE(1,'(g)') Bz0, Bt0, s2
-      CASE(2)
-        WRITE(1,'(g)') Bz0, Bt0, s2, eps
-      CASE(3)
-        WRITE(1,'(g)') Bz0, Bt0, Vp0, epsVp
-        WRITE(1,'(i)') nz
-      CASE(4)
-        WRITE(1,'(g)') P0, P1, lambd
-      CASE(5)
-        WRITE(1,'(g)') Bz0, Bt0, Vp0, epsVp
-        WRITE(1,'(i)') nz
-    ENDSELECT
+    IF (spline) THEN
+      WRITE(1,'(a)') 'spline'
+    ELSE 
+      WRITE(1,'(a)') 'linconst'
+    ENDIF
+    WRITE(1,'(i)') N, NN, mt, equilib, num, nz
+    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp
     CLOSE(1)
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
     REAL(r8), DIMENSION(:), INTENT(IN) :: evalsr, evalsi
     WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsr'
-    OPEN(1,file=filename,status='new')
+    OPEN(1,file=filename,status='replace')
     WRITE(1,'(g)') evalsr
     CLOSE(1)
     WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsi'
-    OPEN(1,file=filename,status='new')
+    OPEN(1,file=filename,status='replace')
     WRITE(1,'(g)') evalsi
     CLOSE(1)    
   END SUBROUTINE output_evals
@@ -398,12 +384,12 @@ CONTAINS
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.grid'
-    OPEN(1,file=filename,status='new')
+    OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     DO j=1,6
       WRITE(filename,'(2(a,i0))') 'output_vcyl/', num,'.evecs',j
-      OPEN(1,file=filename,status='new')
+      OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
         WRITE(1,FMT) ( sum(VR(j::6,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
       ENDDO

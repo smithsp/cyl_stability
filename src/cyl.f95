@@ -11,7 +11,6 @@ PROGRAM cyl
   INTEGER :: NN, i, j, k, l, nphi, npsi, nchi, INFO
   REAL(r8) :: temp, tempA, tempB, tempC, at1, at2, st1, st2, t1, t2
   CHARACTER(LEN=30) :: FMT, FMTR
-  INTEGER :: 
   INTEGER :: LDVL=1, LWORK, LDVR, lower(3), upper(3)
   
   NAMELIST /control_params/  ref, start, fin, verbose
@@ -371,22 +370,8 @@ CONTAINS
     ELSE 
       WRITE(1,'(a)') 'linconst'
     ENDIF
-    WRITE(1,'(i)') N, NN, mt, equilib, num
-    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0
-    SELECT CASE (equilib)
-      CASE(1)
-        WRITE(1,'(g)') Bz0, Bt0, s2
-      CASE(2)
-        WRITE(1,'(g)') Bz0, Bt0, s2, eps
-      CASE(3)
-        WRITE(1,'(g)') Bz0, Bt0
-        WRITE(1,'(i)') nz
-      CASE(4)
-        WRITE(1,'(g)') P0, P1, lambd
-      CASE(5)
-        WRITE(1,'(g)') Bz0, Bt0
-        WRITE(1,'(i)') nz
-    ENDSELECT
+    WRITE(1,'(i)') N, NN, mt, equilib, num, nz
+    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd
     CLOSE(1)
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
