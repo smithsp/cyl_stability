@@ -16,7 +16,7 @@ MODDIR = --mod ${NAG_ROOT}/nag_mod_dir
 OUT=model.exe
 TESTFE=test_finite_elements
 OBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o cyl.o
-VOBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o ${VCYLFUNCS}.o ${VCYLMAT}.o vcyl.o
+VOBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o ${VCYLFUNCS}.o ${CYLMAT}.o ${VCYLMAT}.o vcyl.o
 EQOBJ=local.o sort_module.o ${FEMOD}.o ${VCYLMAT}.o 
 SRCDIR=src
 

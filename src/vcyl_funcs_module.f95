@@ -9,11 +9,12 @@ CONTAINS
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Vz
     SELECT CASE (equilib)
-      CASE(1:6)
+      CASE(1:8)
         Vz = Vz0*(1-epsVz*r**2/ar**2)        
     ENDSELECT
   END FUNCTION Vz
   FUNCTION Vp(r)
+    ! Note that this corresponds to Omega in the formulation
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: Vp
@@ -23,7 +24,7 @@ CONTAINS
       CASE(1:2)
         ! In making the following change to ensure equilibrium, there was a noticable slowdown
         Vp = sqrt(((P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r)/(rho(r)*r)) 
-      CASE(3:6)
+      CASE(3:8)
         Vp = Vp0*(1-epsVp*r**2/ar**2)
     ENDSELECT
     RETURN

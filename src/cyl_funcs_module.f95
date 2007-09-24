@@ -37,7 +37,7 @@ CONTAINS
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
       CASE(2)
         rho = rho0 * (1-eps*(r**2/ar**2))
-      CASE(3:4,6)
+      CASE(3:4,6:8)
         rho = rho0
       CASE(5)
         rho = P(r)*rho0
@@ -58,6 +58,10 @@ CONTAINS
         ENDDO
       CASE(5:6)
         Bz = Bz0
+      CASE(7)
+        Bz = sqrt(Bz0**2-2*p0*exp(-r**2/ar**2))
+      CASE(8)
+        Bz = 0
     ENDSELECT
     RETURN
   END FUNCTION Bz
@@ -77,6 +81,10 @@ CONTAINS
         Bt = Bt0*r/ar
       CASE(6)
         Bt = sqrt(P0*eps)*r/ar
+      CASE(7)
+        Bt = 0
+      CASE(8)
+        Bt = 2*Bt0*r/(r**2+P0**2)
     ENDSELECT
     RETURN
   END FUNCTION Bt
@@ -95,6 +103,10 @@ CONTAINS
         Bt_prime = Bt0/ar
       CASE(6)
         Bt_prime = sqrt(P0*eps)/ar
+      CASE(7)
+        Bt_prime = 0
+      CASE(8)
+        Bt_prime = 2.*Bt0/(r**2+P0**2)-4.*Bt0*r**2/(r**2+P0**2)**2
     ENDSELECT
     RETURN
   END FUNCTION Bt_prime
@@ -122,6 +134,10 @@ CONTAINS
         P = Bt0**2*(1-r**2/ar**2)
       CASE(6)
         P = P0*(1-eps*r**2/ar**2)
+      CASE(7)
+        P = P0*exp(-r**2/ar**2)
+      CASE(8)
+        P = 2*Bt0**2*P0**2/(r**2+P0**2)**2
     ENDSELECT
     RETURN
   END FUNCTION P
