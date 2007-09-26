@@ -44,10 +44,14 @@ PROGRAM cyl
     CALL plot_equilibrium
     IF (spline) THEN
       CALL bspline_deriv_sa()
-      CALL bspline_deriv()      
+      CALL plot_equilibrium
+      CALL bspline_deriv()   
+      CALL plot_equilibrium   
     ELSE 
       CALL linear_const_sa()
+      CALL plot_equilibrium  
       CALL linear_const()
+      CALL plot_equilibrium  
     ENDIF
   ENDIF
   DO num = start,fin
@@ -60,13 +64,16 @@ PROGRAM cyl
     WRITE(1,nml=cyl_params)
     CLOSE(1)
     WRITE(*,nml=cyl_params)
-    CALL plot_equilibrium
     IF (spline) THEN
       CALL bspline_deriv_sa()
-      CALL bspline_deriv()      
+      CALL plot_equilibrium  
+      CALL bspline_deriv()   
+      CALL plot_equilibrium     
     ELSE 
       CALL linear_const_sa()
+      CALL plot_equilibrium  
       CALL linear_const()
+      CALL plot_equilibrium  
     ENDIF
   ENDDO
   CALL cpu_time(t2)

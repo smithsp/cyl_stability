@@ -69,7 +69,7 @@ CONTAINS
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B41c
     B41c = rho(r)*Vp(r)**2/r*(1./mt**2-1) + Bz(r)**2*kz**2*(1+1./mt**2) - &
-    & 2*Bt(r)*Bz(r)/(mt*r)*kz*(1-mt**2)+(mt**2-1)*Bt(r)**2/r**2
+    & 2*Bt(r)*Bz(r)/(mt*r)*kz*(1-mt**2)+(mt**2-1)*Bt(r)**2/r**2  !Units?
   END FUNCTION B41c
   FUNCTION B42b(r)
     IMPLICIT NONE
@@ -81,7 +81,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B42c
-    B42c = rho(r)*Vp(r)**2*(1-1./mt**2)-Bz(r)**2*kz**2/mt**2*r-Bt(r)*Bz(r)*kz/mt
+    B42c = rho(r)*Vp(r)**2*(1-1./mt**2)-Bz(r)**2*kz**2/mt**2*r-Bt(r)*Bz(r)*kz/mt !Units?
   END FUNCTION B42c
   FUNCTION B43b(r)
     IMPLICIT NONE
@@ -93,13 +93,13 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B43c
-    B43c = rho(r)*Vp(r)**2+Bt(r)*Bz(r)*kz/mt-Bt(r)**2/r
+    B43c = rho(r)*Vp(r)**2+Bt(r)*Bz(r)*kz/mt-Bt(r)**2/r !Units?
   END FUNCTION B43c
   FUNCTION B52(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B52
-    B52 = gamma*P(r)+rho(r)*r*Vp(r)**2/mt**2+Bz(r)**2*(1+kz**2*r**2/mt**2)
+    B52 = gamma*P(r)+rho(r)*r*Vp(r)**2/mt**2+Bz(r)**2*(1+kz**2*r**2/mt**2) !Units?
   END FUNCTION B52
   FUNCTION B53(r)
     IMPLICIT NONE

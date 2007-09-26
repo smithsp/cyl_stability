@@ -37,7 +37,7 @@ CONTAINS
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
       CASE(2)
         rho = rho0 * (1-eps*(r**2/ar**2))
-      CASE(3:4,6:8)
+      CASE(3:4,6:9)
         rho = rho0
       CASE(5)
         rho = P(r)*rho0
@@ -62,6 +62,8 @@ CONTAINS
         Bz = sqrt(Bz0**2-2*p0*exp(-r**2/ar**2))
       CASE(8)
         Bz = 0
+      CASE(9)
+        Bz = sqrt(2.0)*sqrt(Bt0**2*(2*ar**2-r**2))/ar
     ENDSELECT
     RETURN
   END FUNCTION Bz
@@ -77,7 +79,7 @@ CONTAINS
         DO i=1,size(r)
           Bt(i) = s17aff(lambd*r(i),ifail)
         ENDDO
-      CASE(5)
+      CASE(5,9)
         Bt = Bt0*r/ar
       CASE(6)
         Bt = sqrt(P0*eps)*r/ar
@@ -99,7 +101,7 @@ CONTAINS
       CASE(4)
         WRITE(*,*) 'Cannot do equilib 4 for Bt_prime'
         STOP
-      CASE(5)
+      CASE(5,9)
         Bt_prime = Bt0/ar
       CASE(6)
         Bt_prime = sqrt(P0*eps)/ar
@@ -138,6 +140,8 @@ CONTAINS
         P = P0*exp(-r**2/ar**2)
       CASE(8)
         P = 2*Bt0**2*P0**2/(r**2+P0**2)**2
+      CASE(9)
+        P = P0
     ENDSELECT
     RETURN
   END FUNCTION P
