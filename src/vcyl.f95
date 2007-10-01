@@ -8,14 +8,14 @@ PROGRAM cyl
   LOGICAL :: spline, phi2_deriv, phi3_deriv, vcyl
   REAL(r8) :: log_Vz0,  nq
 !The following are all used in subroutines below and should not be used in the main (cyl) program
-  INTEGER :: NN, ifail1, i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, nphi, npsi, nchi,INFO
+  INTEGER :: NN, ifail1, i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, nphi, npsi, nchi,INFO, ngrid
   REAL(r8) :: temp, tempA, tempB, tempC, t1, t2, st1, st2, st, at1, at2, at
   CHARACTER(LEN=30) :: FMT, FMTR
   CHARACTER(LEN=40) :: filename, date, time
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp
+  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, ngrid, phi2_deriv, phi3_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -207,7 +207,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
-    CALL output_evecs_linconst(phi,psi,chi,grid,VR)
+    CALL output_evecs_linconst(phi,psi,chi,VR)
   END SUBROUTINE linear_const_sa
   
   SUBROUTINE bspline_deriv_sa() !sa stands for self-adjoint
@@ -340,7 +340,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
-    CALL output_evecs_spline(phi,psi,chi,grid,VR)    
+    CALL output_evecs_spline(phi,psi,chi,VR)    
   END SUBROUTINE bspline_deriv_sa
   SUBROUTINE linear_const()
     IMPLICIT NONE
@@ -590,7 +590,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
-    CALL output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR) 
+    CALL output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,VR) 
   END SUBROUTINE bspline_deriv  
   SUBROUTINE plot_equilibrium
     INTEGER num_pts
@@ -644,7 +644,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ELSE 
       WRITE(1,'(a)') 'linconst'
     ENDIF
-    WRITE(1,'(i)') N, NN, mt, equilib, num, nz
+    WRITE(1,'(i)') N, NN, mt, equilib, num, nz, ngrid
     WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp
     CLOSE(1)
   END SUBROUTINE output_params
@@ -667,14 +667,15 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE(1,'(g)') evalsi
     CLOSE(1)    
   END SUBROUTINE output_evals
-  SUBROUTINE output_evecs_spline(phi1,phi2,phi3,grid,VR)
+  SUBROUTINE output_evecs_spline(phi1,phi2,phi3,VR)
     TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3
-    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(ngrid) :: grid
     REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
     TYPE(bspline), DIMENSION(size(phi1),3) :: phi
     INTEGER :: N , i, j, k
     CHARACTER(LEN=30) FMT
     phi = reshape((/phi1,phi2,phi3/),(/size(phi1),3/))
+    grid = (/ (i*ar/(ngrid-1), i=0,ngrid-1) /)
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     WRITE(filename,'(a,i0,a)') 'output_cyl/',num,'.grid'
@@ -690,15 +691,16 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       CLOSE(1)
     ENDDO 
   END SUBROUTINE output_evecs_spline
-  SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,grid,VR)
+  SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,VR)
     TYPE(linear), DIMENSION(:), INTENT(IN) :: phi1
     TYPE(constant), DIMENSION(:), INTENT(IN) :: phi2, phi3
-    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(ngrid) :: grid
     REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
     TYPE(constant), DIMENSION(size(phi2),2:3) :: phi
     INTEGER :: N , i, j, k
     CHARACTER(LEN=30) FMT
     phi = reshape((/phi2,phi3/),(/size(phi2),2/))
+    grid = (/ (i*ar/(ngrid-1), i=0,ngrid-1) /)
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     WRITE(filename,'(a,i0,a)') 'output_cyl/', num,'.grid'
@@ -721,13 +723,14 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       CLOSE(1)
     ENDDO 
   END SUBROUTINE output_evecs_linconst
-  SUBROUTINE output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR)
+  SUBROUTINE output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,VR)
     TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3,phi4,phi5,phi6
-    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(ngrid)  :: grid
     REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
     TYPE(bspline), DIMENSION(size(phi1),6) :: phi
     INTEGER :: N , i, j, k
     CHARACTER(LEN=30) FMT
+    grid = (/ (i*ar/(ngrid-1), i=0,ngrid-1) /)
     phi = reshape((/phi1,phi2,phi3,phi4,phi5,phi6/),(/size(phi1),6/))
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
