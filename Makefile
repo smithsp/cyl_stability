@@ -48,8 +48,8 @@ cyl: ${OBJ}
 	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe ${NAG_LIBDIR} ${NAG_LIBS}
 vcyl: ${VOBJ}
 	${FC} ${VOBJ} ${FCOPTS} -o vcyl.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
-testfe: local.o ${FEMOD}.o ${CYLFUNCS}.o ${TESTFE}.o
-	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS}  -o testfe.exe
+testfe: local.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o ${TESTFE}.o sort_module.o
+	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o sort_module.o ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS} ${NAG_LIBDIR} ${NAG_LIBS} -o testfe.exe
 testnag: test_nag.o
 	${FC} test_nag.o ${FCOPTS}  ${NAG_LIBDIR} ${NAG_LIBS}  -o testnag.exe 
 plot_eq: ${EQOBJ} plot_equilibrium.o

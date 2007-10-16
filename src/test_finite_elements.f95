@@ -2,8 +2,10 @@ PROGRAM test_finite_elements
   USE local
   USE finite_elements_module
   USE cyl_funcs_module
+  USE cyl_matrix_module
+  USE sort_module
   IMPLICIT NONE
-  INTEGER, PARAMETER :: N=10
+  INTEGER, PARAMETER :: N=21
   TYPE(linear), DIMENSION(N) :: phi
   TYPE(constant), DIMENSION(N-1) :: psi, chi
   TYPE(bspline), DIMENSION(0:N+1) :: xi, xi_deriv
@@ -19,16 +21,28 @@ PROGRAM test_finite_elements
     END FUNCTION f
   END INTERFACE
   nx = size(x)
-  ar = (N-1)*.1
-  kz = 1.1
+  ar = 1.0
+  kz = 1.2
   gamma = 5./3.
-  mt = 1
+  mt = -1
   eps = 0.
-  homo = .true.
   Bz0 = 2.
-  rho0 = 20.
+  equilib = 4
+  P0  = .05
+  P1 = .50
+  lambd = 2.
+  rho0 = 1.
   Bt0 = 0
   grid = (/ (i*ar/real(N-1), i=0,N-1) /)
+  alpha = 2.4
+  rs = .77
+  kB = .true.
+  CALL calc_rs(grid)
+  grid = new_grid(grid)
+  WRITE (*,*) 'rs = ', rs
+  WRITE (*,*) sort(grid)
+  STOP
+  
   x = (/( i*(maxval(grid)-minval(grid))/real(nx-1) + minval(grid), i=0,nx-1)/)
   Lend0 = .true.
   CALL init(phi(2:N-1),grid(2:N-1),p2=grid(1:N-2),p3=grid(3:N))
@@ -266,10 +280,10 @@ PROGRAM test_finite_elements
   WRITE (*,*) '------------------------------------------------------------------'
   write (*,*) 'Assuming p(r)=constant, Bz(r)=constant, Bt(r)=0'
   DO i=1,N-1
-    write (*,'(g,a,g)') int_func(psi(i),psi(i),W22A), ' = ', 1./4.*kz**2 * Bz(1.D0)**2 / mt**2 *((psi(i)%xj+psi(i)%dx)**4-psi(i)%xj**4)+&
-    & 1./2.*(Bz(1.D0)**2+gamma*p((/1.D0/)))*((psi(i)%xj+psi(i)%dx)**2-psi(i)%xj**2)
+    write (*,'(g,a,g)') int_func(psi(i),psi(i),W22A), ' = ', 1./4.*kz**2 * Bz((/1.D0/))**2 / mt**2 *((psi(i)%xj+psi(i)%dx)**4-psi(i)%xj**4)+&
+    & 1./2.*(Bz((/1.D0/))**2+gamma*p((/1.D0/)))*((psi(i)%xj+psi(i)%dx)**2-psi(i)%xj**2)
     
-    xj = phi(i)%xj; dx1 = phi(i)%dx(1); dx2 = phi(i)%dx(2); Bz1 = Bz(1.D0); ptemp = p((/1.D0/))
+    xj = phi(i)%xj; dx1 = phi(i)%dx(1); dx2 = phi(i)%dx(2); Bz1 = minval(Bz((/1.D0/))); ptemp = p((/1.D0/))
     
     write (*,'(g,a,g)') int_func(phi(i),phi(i),W11A,deriv1=.true.,deriv2=.true.)+&
     &2*int_func(phi(i),phi(i),W11B,deriv1=.true.)+int_func(phi(i),phi(i),W11C), ' = ', &

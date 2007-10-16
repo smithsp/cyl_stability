@@ -4,7 +4,9 @@ MODULE cyl_funcs_module
   REAL(r8), EXTERNAL :: s17aef, s17aff
   INTEGER :: mt, equilib, ifail, nz  !m_theta, choice of equilibrium configuration, 
   REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
+  REAL(r8) :: rs, alpha ! These are parameters for localizing the grid around rs
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
+  LOGICAL :: kB  !This is a switch to calculate the resonant surface at which kB=0 (instead of where k_\parallel=0)
 CONTAINS
   FUNCTION alfven_range(r)
     IMPLICIT NONE
@@ -37,7 +39,7 @@ CONTAINS
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
       CASE(2)
         rho = rho0 * (1-eps*(r**2/ar**2))
-      CASE(3:4,6:9)
+      CASE(3:4,6:10)
         rho = rho0
       CASE(5)
         rho = P(r)*rho0
@@ -64,6 +66,8 @@ CONTAINS
         Bz = 0
       CASE(9)
         Bz = sqrt(2.0)*sqrt(Bt0**2*(2*ar**2-r**2))/ar
+      CASE(10)
+        Bz = sqrt((Bz0**2-2*p0+2*Bt0**2)*ar**2+2*(p0-Bt0**2)*r**2)/ar
     ENDSELECT
     RETURN
   END FUNCTION Bz
@@ -73,7 +77,7 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: Bt
     INTEGER :: i
     SELECT CASE (equilib)
-      CASE(1:3)
+      CASE(1:3,10)
         Bt = Bt0*r/ar
       CASE(4)
         DO i=1,size(r)
@@ -96,11 +100,12 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: Bt_prime
     INTEGER :: i
     SELECT CASE (equilib)
-      CASE(1:3)
+      CASE(1:3,10)
         Bt_prime = Bt0/ar
       CASE(4)
-        WRITE(*,*) 'Cannot do equilib 4 for Bt_prime'
-        STOP
+        DO i=1,size(r)
+          Bt_prime(i) = (s17aef(lambd*r(i),ifail)-s17aff(lambd*r(i),ifail)/(lambd*r(i)))*lambd
+        ENDDO
       CASE(5,9)
         Bt_prime = Bt0/ar
       CASE(6)
@@ -126,7 +131,7 @@ CONTAINS
     SELECT CASE (equilib)
       CASE(1:2)
         P = s2/gamma*Bz0**2  
-      CASE(3)
+      CASE(3,10)
         P = Bt0**2*(1-r**2/ar**2)
       CASE(4)
         DO i=1,size(r)
@@ -179,4 +184,38 @@ CONTAINS
       diff(i) = maxval((func((/r(i)+epsr/))-func((/r(i)-epsr/)))/(2*epsr))
     ENDDO
   END FUNCTION diff
+  FUNCTION new_grid(grid)
+    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(size(grid)) :: new_grid
+    INTEGER :: rs_ind, ng
+    ng = size(grid)    
+    IF (rs.le.0 .or. rs.ge.ar ) THEN
+      new_grid = grid
+      RETURN
+    ENDIF
+    rs_ind = minval(minloc(abs(grid-rs)))
+    IF (rs-grid(rs_ind)<0) THEN
+      rs_ind=  rs_ind-1
+    ENDIF
+    IF (rs.ne.0) THEN
+      new_grid(1:rs_ind) = -rs*((rs-grid(1:rs_ind))/rs)**alpha+rs
+    ENDIF
+    IF (rs.ne.ar) THEN
+      new_grid(rs_ind+1:) = (ar-rs)*((grid(rs_ind+1:)-rs)/(ar-rs))**alpha+rs
+    ENDIF
+    write(*,*) 'new_grid = ', new_grid
+    RETURN    
+  END FUNCTION new_grid
+  SUBROUTINE calc_rs(grid)
+    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
+    REAL(r8), DIMENSION(size(grid)-1) :: y
+    INTEGER :: rs_ind, ng
+    ng = size(grid)
+    rs = -mt/kz!minval(grid(minloc(abs(mt+kz*grid(2:)))+1))
+    IF (kB) THEN
+      y = (mt*Bt(grid(2:))+kz*Bz(grid(2:))*grid(2:))
+      rs_ind = minval(minloc(y(2:ng-1)*y(3:)))
+      rs = (grid(rs_ind+1)*y(rs_ind+1)-y(rs_ind)*grid(rs_ind+2))/(y(rs_ind+1)-y(rs_ind)) !Linear interpolation
+    ENDIF
+  END SUBROUTINE calc_rs
 END MODULE cyl_funcs_module

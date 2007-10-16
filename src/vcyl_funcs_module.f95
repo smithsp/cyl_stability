@@ -9,7 +9,7 @@ CONTAINS
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Vz
     SELECT CASE (equilib)
-      CASE(1:9)
+      CASE(1:10)
         Vz = Vz0*(1-epsVz*r**2/ar**2)        
     ENDSELECT
   END FUNCTION Vz
@@ -24,7 +24,7 @@ CONTAINS
       CASE(1:2)
         ! In making the following change to ensure equilibrium, there was a noticable slowdown
         Vp = sqrt(((P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r)/(rho(r)*r)) 
-      CASE(3:9)
+      CASE(3:10)
         Vp = Vp0*(1-epsVp*r**2/ar**2)
     ENDSELECT
     RETURN
