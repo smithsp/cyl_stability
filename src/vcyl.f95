@@ -7,15 +7,19 @@ PROGRAM cyl
   INTEGER :: ref, start, fin, N, num
   LOGICAL :: spline, phi2_deriv, phi3_deriv, vcyl
   REAL(r8) :: log_Vz0,  nq
+  CHARACTER(LEN=40) :: filename, date, time
 !The following are all used in subroutines below and should not be used in the main (cyl) program
   INTEGER :: NN, ifail1, i, j, k, l, m, nphi1, nphi2, nphi3, nphi4, nphi5, nphi6, nphi, npsi, nchi,INFO
   REAL(r8) :: temp, tempA, tempB, tempC, t1, t2, st1, st2, st, at1, at2, at
+  REAL(r8), DIMENSION(:), ALLOCATABLE :: grid, ALPHAR, ALPHAI, BETA, RWORK, WORK
+  REAL(r8), DIMENSION(:,:), ALLOCATABLE :: A, B, C, D, VR
+  REAL(r8), DIMENSION(:,:), ALLOCATABLE :: VL
   CHARACTER(LEN=30) :: FMT, FMTR
-  CHARACTER(LEN=40) :: filename, date, time
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
+  LOGICAL :: Lend0
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp, rs, alpha, kB
+  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp, rs, alpha, kB, Lend0
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -37,16 +41,16 @@ PROGRAM cyl
     WRITE(1,nml=cyl_params)
     CLOSE(1)
     WRITE(*,nml=cyl_params)
-    CALL plot_equilibrium
     IF (spline) THEN
-      CALL bspline_deriv_sa()
-      CALL plot_equilibrium
-      CALL bspline_deriv()   
-      CALL plot_equilibrium   
+      IF((Vz0.eq.0).and.(Vp0.eq.0)) THEN
+        CALL bspline_deriv_sa()
+        CALL plot_equilibrium
+      ELSE
+        CALL bspline_deriv()   
+        CALL plot_equilibrium  
+      ENDIF
     ELSE 
       CALL linear_const_sa()
-      CALL plot_equilibrium  
-      CALL linear_const()
       CALL plot_equilibrium  
     ENDIF
   ENDIF
@@ -61,14 +65,15 @@ PROGRAM cyl
     CLOSE(1)
     WRITE(*,nml=cyl_params)
     IF (spline) THEN
-      CALL bspline_deriv_sa()
-      CALL plot_equilibrium  
-      CALL bspline_deriv()   
-      CALL plot_equilibrium     
+      IF((Vz0.eq.0).and.(Vp0.eq.0)) THEN
+        CALL bspline_deriv_sa()
+        CALL plot_equilibrium
+      ELSE
+        CALL bspline_deriv()   
+        CALL plot_equilibrium  
+      ENDIF
     ELSE 
       CALL linear_const_sa()
-      CALL plot_equilibrium  
-      CALL linear_const()
       CALL plot_equilibrium  
     ENDIF
   ENDDO
@@ -80,15 +85,17 @@ PROGRAM cyl
 CONTAINS
 SUBROUTINE linear_const_sa() !sa stands for self adjoint
     IMPLICIT NONE
-    REAL(r8), DIMENSION(N):: grid
-    REAL(r8), DIMENSION(N-1) :: xi_1, xi_2, xi_3
-    TYPE(linear), DIMENSION(N-1) :: phi 
-    TYPE(constant), DIMENSION(N-1) :: psi, chi
-    REAL(r8), DIMENSION(3*(N-1),3*(N-1)):: A, B, C, D, VR
-    REAL(r8), DIMENSION(1,3*(N-1)) :: VL
-    INTEGER inds(3*size(phi))
-    REAL(r8), DIMENSION(3*(N-1)) :: ALPHAR, ALPHAI, BETA, RWORK(8*3*(N-1)), WORK(10*3*(N-1)), slow, lambda
-    REAL(r8) :: xgrid(N*30)
+    TYPE(linear), DIMENSION(:), ALLOCATABLE :: phi 
+    TYPE(constant), DIMENSION(:), ALLOCATABLE :: psi, chi
+    
+    ALLOCATE(grid(N),psi(N-1),chi(N-1))
+    IF ((abs(mt).eq.1).and.(.not.Lend0)) THEN
+      ALLOCATE(phi(N-1))
+    ELSE
+      ALLOCATE(phi(2:N-1))
+    ENDIF
+    NN = size(phi)+size(psi)+size(chi)
+    ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHAI(NN),ALPHAR(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
     
     vcyl = .false.
     
@@ -105,7 +112,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
 
 
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    NN = size(phi)+size(psi)+size(chi)
     LWORK=10*NN
     LDVR = NN
     WRITE(FMT,'(a1,I,a)') '(',NN,'g14.5)'
@@ -204,30 +210,33 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs_linconst(phi,psi,chi,grid,VR)
+    DEALLOCATE(grid,phi,psi,chi,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
   END SUBROUTINE linear_const_sa
   
   SUBROUTINE bspline_deriv_sa() !sa stands for self-adjoint
     IMPLICIT NONE
-    REAL(r8), DIMENSION(N):: grid
-    TYPE(bspline), DIMENSION(0:N) :: phi, psi, chi 
-    REAL(r8), DIMENSION(size(phi)+size(psi)+size(chi),size(phi)+size(psi)+size(chi)):: A, B, C, D, VR
-    REAL(r8), DIMENSION(1,size(phi)+size(psi)+size(chi)) :: VL
-    REAL(r8), DIMENSION(size(phi)+size(psi)+size(chi)) :: ALPHAR, ALPHAI, BETA, slow,lambda,&
-    & RWORK(8*(size(phi)+size(psi)+size(chi))), WORK(10*(size(phi)+size(psi)+size(chi)))
-    LOGICAL :: Lend0
- 
+    TYPE(bspline), DIMENSION(:), ALLOCATABLE :: phi, psi, chi 
+
     vcyl = .false.
+    ALLOCATE(grid(N))
+    IF (abs(mt).eq.1.and.(.not.Lend0)) THEN
+      ALLOCATE(phi(0:N),psi(0:N),chi(0:N))
+    ELSE
+      ALLOCATE(phi(1:N),psi(1:N),chi(1:N))
+    ENDIF
+    NN = size(phi)+size(psi)+size(chi)
+    ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHAI(NN),ALPHAR(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
     
   !Initialize the finite elements
-    Lend0 = .true.
     lower(1:3) = (/lbound(phi,1), lbound(psi,1), lbound(chi,1)/)
     upper(1:3) = (/ubound(phi,1), ubound(psi,1), ubound(chi,1)/) 
 
     grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
     nphi =  size(phi); npsi = size(psi); nchi = size(chi)
-
-    CALL init(phi(0),grid(1),p3=grid(2),LendZero=.true.)
+    IF (lower(1).eq.0) THEN
+      CALL init(phi(0),grid(1),p3=grid(2),LendZero=.true.)
+    ENDIF
     CALL init(phi(1),grid(1),p3=grid(2),p4=grid(3),LendZero=.true.)
     CALL init(phi(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),LendZero=.true.)
     CALL init(phi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N))
@@ -240,7 +249,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     chi%deriv = phi3_deriv
 
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    NN = size(phi)+size(psi)+size(chi)
     LWORK=10*NN
     LDVR = NN
     WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
@@ -338,19 +346,19 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
-    CALL output_evecs_spline(phi,psi,chi,grid,VR)    
+    CALL output_evecs_spline(phi,psi,chi,grid,VR)   
+    DEALLOCATE(grid,phi,psi,chi,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv_sa
   SUBROUTINE linear_const()
     IMPLICIT NONE
-    REAL(r8), DIMENSION(N):: grid
-    REAL(r8), DIMENSION(N-1) :: xi_1, xi_2, xi_3
+
     TYPE(linear), DIMENSION(N-1) :: phi1 , phi4
     TYPE(constant), DIMENSION(N-1) :: phi2, phi3, phi5, phi6
     REAL(r8), DIMENSION(3*(N-1),3*(N-1)):: A, B, C, D, VR
     REAL(r8), DIMENSION(1,3*(N-1)) :: VL
     INTEGER inds(3*size(phi1))
     REAL(r8), DIMENSION(3*(N-1)) :: ALPHAR, ALPHAI, BETA, RWORK(8*3*(N-1)), WORK(10*3*(N-1)), slow, lambda
-    
+    ALLOCATE(grid(N))    
     vcyl = .true.
     
   !Initialize the finite elements
@@ -363,28 +371,27 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL init(phi1(2:N-1),grid(2:N-1),p2=grid(1:N-2),p3=grid(3:N))
     CALL init(phi2(1:N-1),grid(1:N-1),p3=grid(2:N))
     CALL init(phi3(1:N-1),grid(1:N-1),p3=grid(2:N))
-    WRITE (*,*) 'The linear finite elements are not implemented.'
+    WRITE (*,*) 'The linear finite elements are not implemented for the velocity formulation.'
   END SUBROUTINE linear_const
   
   
   SUBROUTINE bspline_deriv()
     IMPLICIT NONE
-    REAL(r8), DIMENSION(N):: grid
-    TYPE(bspline), DIMENSION(0:N) :: phi1, phi2, phi3, phi4, phi5, phi6
-    REAL(r8), DIMENSION(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6),&
-    & size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)):: A, B, C, D, VR
-    REAL(r8), DIMENSION(1,size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)) :: VL
-    INTEGER ::  inds(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6))
-    REAL(r8), DIMENSION(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)) :: ALPHAR, ALPHAI, BETA, slow,lambda,&
-    & RWORK(8*(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6))), &
-    & WORK(10*(size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)))
-    LOGICAL :: Lend0
- 
+    TYPE(bspline), DIMENSION(:), ALLOCATABLE :: phi1, phi2, phi3, phi4, phi5, phi6
+    
     vcyl = .true.
+    ALLOCATE(grid(N))
+    IF (abs(mt).eq.1.and.(.not.Lend0)) THEN
+      ALLOCATE(phi1(0:N),phi2(0:N),phi3(0:N),phi4(0:N),phi5(0:N),phi6(0:N))
+    ELSE
+      ALLOCATE(phi1(1:N),phi2(1:N),phi3(1:N),phi4(1:N),phi5(1:N),phi6(1:N))
+    ENDIF
+    NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
+    ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHAI(NN),ALPHAR(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
+
     grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
   !Initialize the finite elements
-    Lend0 = .true.
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
     upper = (/ubound(phi1,1), ubound(phi2,1), ubound(phi3,1), ubound(phi4,1), ubound(phi5,1), ubound(phi6,1), ubound(phi1,1), ubound(phi2,1), ubound(phi3,1)/) 
     
@@ -406,7 +413,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     phi6%deriv = phi3_deriv
     
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
     LWORK=10*NN
     LDVR = NN
     WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
@@ -589,6 +595,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR) 
+    DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv  
   SUBROUTINE plot_equilibrium
     INTEGER num_pts
@@ -602,7 +609,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     density = rho(grid)
     pv = Vp(grid)*grid
     zv = Vz(grid)
-    safety = q(grid)
+    safety(1) = 0.
+    safety(2:N) = q(grid(2:N))
     p_prime = diff(P,grid)
     Bz_prime = diff(Bz,grid)
     Bt_prime = diff(Bt,grid)
@@ -644,7 +652,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDIF
     WRITE(1,'(i)') N, NN, mt, equilib, num, nz
     WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp, rs, alpha
-    WRITE(1,'(l)') kB
+    WRITE(1,'(l)') kB, Lend0
     CLOSE(1)
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
@@ -680,11 +688,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
+    N = size(phi1)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     DO j=1,3
       WRITE(filename,'(2(a,i0))') 'output_cyl/',num,'.evecs',j
       OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
-        WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
+        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),3 )
       ENDDO
       CLOSE(1)
     ENDDO 
@@ -705,17 +715,21 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     j=1
+    N = size(phi1)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     WRITE(filename,'(2(a,i0))') 'output_cyl/', num,'.evecs',j
     OPEN(1,file=filename,status='replace')
     DO k=1,size(VR(1,:))
-      WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi1,grid(i))),',' , i=1,size(grid) )
+      WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),3 )
     ENDDO
     CLOSE(1)
+    N = size(phi2)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     DO j=2,3
       WRITE(filename,'(2(a,i0))') 'output_cyl/', num,'.evecs',j
       OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
-        WRITE(1,FMT) ( sum(VR(j::3,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
+        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),3 )
       ENDDO
       CLOSE(1)
     ENDDO 
@@ -734,11 +748,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
+    N = size(phi1)
+    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     DO j=1,6
       WRITE(filename,'(2(a,i0))') 'output_vcyl/', num,'.evecs',j
       OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
-        WRITE(1,FMT) ( sum(VR(j::6,k)*val(phi(:,j),grid(i))),',' , i=1,size(grid) )
+        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),6 )
       ENDDO
       CLOSE(1)
     ENDDO 

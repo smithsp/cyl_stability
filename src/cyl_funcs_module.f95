@@ -152,14 +152,8 @@ CONTAINS
   END FUNCTION P
   FUNCTION q(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
-    REAL(r8), DIMENSION(size(r)) :: q
-    IF (Bt0.ne.0) THEN
-      q = kz*ar*Bz(r)/Bt0
-    ELSE IF (P0.ne.0.and.eps.ne.0) THEN
-      q = kz*ar*Bz(r)/sqrt(P0*eps)
-    ELSE
-      q = 0
-    ENDIF
+    REAL(r8), DIMENSION(size(r)) :: q    
+    q = kz*r*Bz(r)/Bt(r)
     RETURN
   END FUNCTION q
   FUNCTION equilibrium(r)
