@@ -44,6 +44,8 @@ test_nag.o: ${SRCDIR}/test_nag.f95
 	${FC} $? ${FCOPTS} -c
 plot_equilibrium.o: ${SRCDIR}/plot_equilibrium.f95
 	${FC} $? ${FCOPTS} -c
+test_eq.o: ${SRCDIR}/test_eq.f95
+	${FC} $? ${FCOPTS} -c
 cyl: ${OBJ}
 	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe ${NAG_LIBDIR} ${NAG_LIBS}
 vcyl: ${VOBJ}
@@ -54,5 +56,7 @@ testnag: test_nag.o
 	${FC} test_nag.o ${FCOPTS}  ${NAG_LIBDIR} ${NAG_LIBS}  -o testnag.exe 
 plot_eq: ${EQOBJ} plot_equilibrium.o
 	${FC}  ${EQOBJ} plot_equilibrium.o ${FCOPTS}  ${NAG_LIBDIR} ${NAG_LIBS}  -o plot_eq.exe 
+test_eq: local.o ${CYLFUNCS}.o ${VCYLFUNCS}.o test_eq.o
+	${FC} test_eq.o local.o ${CYLFUNCS}.o ${VCYLFUNCS}.o ${FCOPTS} -o test_eq.exe ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
 clean:
 	rm *.o *.mod *.exe

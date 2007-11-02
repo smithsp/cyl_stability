@@ -600,7 +600,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
   SUBROUTINE plot_equilibrium
     INTEGER num_pts
     INTEGER :: i
-    REAL(r8), DIMENSION(N) :: grid, pressure, zb, tb, density, pv, zv, p_prime, Bt_prime, Bz_prime, safety
+    REAL(r8), DIMENSION(N) :: grid, pressure, zb, tb, density, pv, zv, safety, pp, bzp, btp
     num_pts = N
     grid = (/ (i*ar/(num_pts-1), i=0,num_pts-1) /)
     pressure = P(grid)
@@ -609,11 +609,11 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     density = rho(grid)
     pv = Vp(grid)*grid
     zv = Vz(grid)
+    pp = P_prime(grid)
+    bzp = Bz_prime(grid)
+    btp = Bt_prime(grid)
     safety(1) = 0.
     safety(2:N) = q(grid(2:N))
-    p_prime = diff(P,grid)
-    Bz_prime = diff(Bz,grid)
-    Bt_prime = diff(Bt,grid)
     IF(vcyl) THEN
       WRITE(filename,'(a,i0,a)') 'equilibria_vcyl/',num,'.txt'
     ELSE
@@ -632,7 +632,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE (*,'(g)') equilibrium_v(grid(2:))
       WRITE (*,'(5(a20))') 'pressure','p_prime', 'Bz*Bz_prime', 'Bt*Bt_prime', 'Bt**2/r'
       DO i=2,size(grid)
-        WRITE (*,'(5(g20.10))') pressure(i), p_prime(i), zb(i)*Bz_prime(i), tb(i)*Bt_prime(i), tb(i)**2/grid(i)
+        WRITE (*,'(5(g20.10))') pressure(i), pp(i), zb(i)*bzp(i), tb(i)*btp(i), tb(i)**2/grid(i)
       ENDDO
     ENDIF
   END SUBROUTINE plot_equilibrium

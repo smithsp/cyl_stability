@@ -4,6 +4,7 @@ MODULE cyl_funcs_module
   REAL(r8), EXTERNAL :: s17aef, s17aff
   INTEGER :: mt, equilib, ifail, nz  !m_theta, choice of equilibrium configuration, 
   REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
+  REAL(r8) :: Vz0, epsVz, Vp0, epsVp
   REAL(r8) :: rs, alpha ! These are parameters for localizing the grid around rs
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
   LOGICAL :: kB  !This is a switch to calculate the resonant surface at which kB=0 (instead of where k_\parallel=0)
@@ -43,6 +44,8 @@ CONTAINS
         rho = rho0
       CASE(5)
         rho = P(r)*rho0
+      CASE(11)
+        rho = 1+(rho0-1)*r**2
     ENDSELECT
     RETURN
   END FUNCTION rho
@@ -52,14 +55,12 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: Bz
     INTEGER :: i
     SELECT CASE (equilib)
-      CASE(1:3)
+      CASE(1:3,5:6)
         Bz = Bz0
       CASE(4)
         DO i=1,size(r)
           Bz(i) = sqrt(1.-P1)* s17aef(lambd*r(i),ifail)
         ENDDO
-      CASE(5:6)
-        Bz = Bz0
       CASE(7)
         Bz = sqrt(Bz0**2-2*p0*exp(-r**2/ar**2))
       CASE(8)
@@ -68,29 +69,56 @@ CONTAINS
         Bz = sqrt(2.0)*sqrt(Bt0**2*(2*ar**2-r**2))/ar
       CASE(10)
         Bz = sqrt((Bz0**2-2*p0+2*Bt0**2)*ar**2+2*(p0-Bt0**2)*r**2)/ar
+      CASE(11)
+        Bz = sqrt(2.0)*sqrt(0.1D1/gamma*P0)*(1-Bz0*r**2)
     ENDSELECT
     RETURN
   END FUNCTION Bz
+  FUNCTION Bz_prime(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: Bz_prime
+    INTEGER :: i
+    SELECT CASE (equilib)
+      CASE(1:3,5:6,8)
+        Bz_prime = 0
+      CASE(4)
+        DO i=1,size(r)
+          Bz_prime(i) = -sqrt(1.-P1)* s17aff(lambd*r(i),ifail)*lambd
+        ENDDO
+      CASE(7)
+        Bz_prime = 2*(Bz0**2-2*p0*exp(-r**2/ar**2))**(-.5)*p0*r&
+        & /ar**2*exp(-r**2/ar**2)
+      CASE(9)
+        Bz_prime = -sqrt(2.0)*(Bt0**2*(2*ar**2-r**2))**(-.5)/ar*Bt0**2*r
+      CASE(10)
+        Bz_prime = 2*r*(p0-Bt0**2)*(ar**2*Bz0**2-2*ar**2*p0+2*ar**2*Bt0**2+&
+        & 2*r**2*p0-2*r**2*Bt0**2)**(-0.5)/ar
+      CASE(11)
+        Bz_prime = -2*sqrt(2.0)*sqrt(0.1D1/gamma*P0)*Bz0*r
+    ENDSELECT
+    RETURN
+  END FUNCTION Bz_prime
   FUNCTION Bt(r) !for B_theta
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: Bt
     INTEGER :: i
     SELECT CASE (equilib)
-      CASE(1:3,10)
+      CASE(1:2,7)
+        Bt = 0
+      CASE(3,5,9,10)
         Bt = Bt0*r/ar
       CASE(4)
         DO i=1,size(r)
           Bt(i) = s17aff(lambd*r(i),ifail)
         ENDDO
-      CASE(5,9)
-        Bt = Bt0*r/ar
       CASE(6)
         Bt = sqrt(P0*eps)*r/ar
-      CASE(7)
-        Bt = 0
       CASE(8)
         Bt = 2*Bt0*r/(r**2+P0**2)
+      CASE(11)
+        Bt = Bt0*r*(1.-lambd*r**2/2.)/2.
     ENDSELECT
     RETURN
   END FUNCTION Bt
@@ -100,20 +128,22 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: Bt_prime
     INTEGER :: i
     SELECT CASE (equilib)
-      CASE(1:3,10)
+      CASE(1:2)
+        Bt_prime = 0
+      CASE(3,5,9,10)
         Bt_prime = Bt0/ar
       CASE(4)
         DO i=1,size(r)
           Bt_prime(i) = (s17aef(lambd*r(i),ifail)-s17aff(lambd*r(i),ifail)/(lambd*r(i)))*lambd
         ENDDO
-      CASE(5,9)
-        Bt_prime = Bt0/ar
       CASE(6)
         Bt_prime = sqrt(P0*eps)/ar
       CASE(7)
         Bt_prime = 0
       CASE(8)
         Bt_prime = 2.*Bt0/(r**2+P0**2)-4.*Bt0*r**2/(r**2+P0**2)**2
+      CASE(11)
+        Bt_prime = Bt0*(1-lambd*r**2/2)/2-Bt0*r**2*lambd/2
     ENDSELECT
     RETURN
   END FUNCTION Bt_prime
@@ -131,14 +161,12 @@ CONTAINS
     SELECT CASE (equilib)
       CASE(1:2)
         P = s2/gamma*Bz0**2  
-      CASE(3,10)
+      CASE(3,5)
         P = Bt0**2*(1-r**2/ar**2)
       CASE(4)
         DO i=1,size(r)
           P(i) = P0+P1/2.*s17aef(lambd*r(i),ifail)**2
         ENDDO
-      CASE(5)
-        P = Bt0**2*(1-r**2/ar**2)
       CASE(6)
         P = P0*(1-eps*r**2/ar**2)
       CASE(7)
@@ -147,9 +175,55 @@ CONTAINS
         P = 2*Bt0**2*P0**2/(r**2+P0**2)**2
       CASE(9)
         P = P0
+      CASE(10)
+        P = P0*(1-r**2/ar**2)
+      CASE(11)
+        P = eps**2*(rho0-1)*r**8/8&
+        & +0.2D1/0.7D1*epsVp*eps*(rho0-1)*r**7&
+        & +(-Bt0**2*lambd**2/24+(2*Vp0*eps+epsVp**2)*(rho0-1)/6+eps**2/6)*r**6&
+        & +(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*r**5&
+        & +(Vp0**2*(rho0-1)/4+Vp0*eps/2+epsVp**2/4&
+        & +0.3D1/0.16D2*Bt0**2*lambd-0.1D1/gamma*P0*Bz0**2)*r**4&
+        & +0.2D1/0.3D1*Vp0*epsVp*r**3&
+        & +(-Bt0**2/4+Vp0**2/2+2/gamma*P0*Bz0)*r**2&
+        & -0.1D1/gamma*P0
     ENDSELECT
     RETURN
   END FUNCTION P
+  FUNCTION P_prime(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: P_prime
+    INTEGER :: i
+    SELECT CASE (equilib)
+      CASE(1:2)
+        P_prime = 0  
+      CASE(3,5)
+        P_prime = -Bt0**2*(2*r/ar**2)
+      CASE(4)
+        DO i=1,size(r)
+          P_prime(i) = -P1*lambd*s17aef(lambd*r(i),ifail)*s17aff(lambd*r(i))
+        ENDDO
+      CASE(6)
+        P_prime = P0*(-2*eps*r/ar**2)
+      CASE(7)
+        P_prime = -2*P0*exp(-r**2/ar**2)*r/ar**2
+      CASE(8)
+        P_prime = -8*Bt0**2*P0**2/(r**2+P0**2)**3 *r
+      CASE(9)
+        P_prime = 0
+      CASE(10)
+        P_prime = -2*p0*r/ar**2
+      CASE(11)
+        P_prime = eps**2*(rho0-1)*r**7&
+        & +2*epsVp*eps*(rho0-1)*r**6&
+        & +6*(-Bt0**2*lambd**2/24+(2*Vp0*eps+epsVp**2)*(rho0-1)/6+eps**2/6)*r**5&
+        & +5*(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*r**4&
+        & +4*(Vp0**2*(rho0-1)/4+Vp0*eps/2+epsVp**2/4+0.3D1/0.16D2*Bt0**2*lambd-0.1D1/Gamma*P0*Bz0**2)*r**3&
+        & +2*Vp0*epsVp*r**2+2*(-Bt0**2/4+Vp0**2/2+2/Gamma*P0*Bz0)*r
+    ENDSELECT
+    RETURN
+  END FUNCTION P_prime
   FUNCTION q(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: q    
@@ -159,7 +233,7 @@ CONTAINS
   FUNCTION equilibrium(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: equilibrium
-    equilibrium = diff(P,r) + Bz(r)*diff(Bz,r)+Bt(r)*diff(Bt,r)+Bt(r)**2/r
+    equilibrium = P_prime(r) + Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+Bt(r)**2/r
   END FUNCTION equilibrium
   FUNCTION diff(func,r)
     REAL(r8), DIMENSION(:) :: r

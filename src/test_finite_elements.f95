@@ -21,7 +21,7 @@ PROGRAM test_finite_elements
     END FUNCTION f
   END INTERFACE
   nx = size(x)
-  ar = 1.0
+  ar = .9
   kz = 1.2
   gamma = 5./3.
   mt = -1
@@ -38,10 +38,10 @@ PROGRAM test_finite_elements
   rs = .77
   kB = .true.
   CALL calc_rs(grid)
-  grid = new_grid(grid)
+  !grid = new_grid(grid)
   WRITE (*,*) 'rs = ', rs
   WRITE (*,*) sort(grid)
-  STOP
+  !STOP
   
   x = (/( i*(maxval(grid)-minval(grid))/real(nx-1) + minval(grid), i=0,nx-1)/)
   Lend0 = .true.

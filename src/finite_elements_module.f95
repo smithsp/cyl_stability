@@ -141,13 +141,13 @@ CONTAINS
     ENDIF
   END FUNCTION constant_val
 
-  ELEMENTAL SUBROUTINE bspline_init(this,xj,p1,p2,p3,p4,RendZero,deriv,LendZero)
+  ELEMENTAL SUBROUTINE bspline_init(this,xj1,p1,p2,p3,p4,RendZero,deriv,LendZero)
     IMPLICIT NONE
     TYPE(bspline), INTENT(OUT) :: this
-    REAL(r8), INTENT(IN) :: xj
+    REAL(r8), INTENT(IN) :: xj1
     REAL(r8), INTENT(IN), OPTIONAL :: p1, p2, p3, p4
     REAL(r8), DIMENSION(4) :: dx, A(0:3), B(0:3), C(0:3), D(0:3)
-    REAL(r8) :: denom, numA, numD, denom1, num1, num2, num3, num4, diff2
+    REAL(r8) :: denom, numA, numD, denom1, num1, num2, num3, num4, diff2, xj
     LOGICAL, INTENT(IN), OPTIONAL :: RendZero, deriv, LendZero
     LOGICAL :: Rend0, Lend0
     Rend0 = .false.
@@ -156,7 +156,8 @@ CONTAINS
     IF(present(RendZero)) Rend0 = RendZero
     IF(present(LendZero)) Lend0 = LendZero
     IF(present(deriv)) this%deriv = deriv
-    this%xj = xj
+    this%xj = xj1
+    xj = xj1
     this%dx = 0.
     this%extent = 0
     this%error = .false.
@@ -186,6 +187,7 @@ CONTAINS
       !STOP
     ENDIF
     dx = this%dx
+    xj = 0
     A = 0.; B = 0.; C = 0.; D = 0.
     IF((.not.Lend0).and.(.not.Rend0)) THEN
       IF(this%extent(1).eq.1) THEN !This is a left end element that is not zero at the boundary
@@ -547,7 +549,7 @@ CONTAINS
       ELSE
         coeff = 0.
       ENDIF
-      bspline_val = sum((/ (coeff(j)*x**j, j=0,3)/))
+      bspline_val = sum((/ (coeff(j)*(x-xj)**j, j=0,3)/))
       ENDIF
     RETURN
   END FUNCTION bspline_val
@@ -580,7 +582,7 @@ CONTAINS
     ELSE
       coeff = 0.
     ENDIF
-    bspline_val_prime = sum((/ (j*coeff(j)*x**(j-1), j=1,3)/))
+    bspline_val_prime = sum((/ (j*coeff(j)*(x-xj)**(j-1), j=1,3)/))
     RETURN
   END FUNCTION bspline_val_prime
   
@@ -634,7 +636,7 @@ CONTAINS
         !RETURN
       ELSE
         IF (a.eq.0) a = a+b*epsilon(b)
-        min_k = 2
+        min_k = 1
         inte = 0.
         ! Outer loop yields next composite trapezoidal rule estimate
         DO k = min_k, max_div
@@ -685,13 +687,13 @@ CONTAINS
           DO j= (min_k + 1),k
             int_arr(k,j) = int_arr(k,j-1) + (int_arr(k,j-1) - int_arr(k-1,j-1))/(4.**(j-min_k)-1.)
           END DO
-          IF (k.gt.min_k+3) THEN
+          IF (k.ge.min_k+2) THEN
             r_int = int_arr(k,k)
             error = r_int - int_arr(k-1,k-1)
             IF(abs(error).le.epsilo*abs(r_int).or. (abs(r_int).lt.epsilo.and.k.gt.6)) THEN
               error2 = r_int - int_arr(k-2,k-2)
               !test the next nearest neighbor in the diagonal
-              IF((abs(error2).le.epsilo*abs(r_int).and.k.gt.4).or. (abs(r_int).lt.epsilo.and.k.gt.6)) THEN
+              IF((abs(error2).le.epsilo*abs(r_int)).or. (abs(r_int).lt.epsilo.and.k.gt.6)) THEN
                 temp_int(ind) = r_int
                 !WRITE (*,*) 'Good:  int_bspline_bspline_func at grid points ', spline1%xj,' ', spline2%xj,&
                 !  &' converged well.   prime1 = ', prime1, '  prime2 = ', prime2
