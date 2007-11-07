@@ -45,7 +45,7 @@ CONTAINS
       CASE(5)
         rho = P(r)*rho0
       CASE(11)
-        rho = 1+(rho0-1)*r**2
+        rho = 1.+(rho0-1.)*r**2
     ENDSELECT
     RETURN
   END FUNCTION rho
@@ -70,7 +70,7 @@ CONTAINS
       CASE(10)
         Bz = sqrt((Bz0**2-2*p0+2*Bt0**2)*ar**2+2*(p0-Bt0**2)*r**2)/ar
       CASE(11)
-        Bz = sqrt(2.0)*sqrt(0.1D1/gamma*P0)*(1-Bz0*r**2)
+        Bz = sqrt(2.0)*sqrt(0.1D1/gamma*P0)*(1.-Bz0*r**2)
     ENDSELECT
     RETURN
   END FUNCTION Bz
@@ -143,7 +143,7 @@ CONTAINS
       CASE(8)
         Bt_prime = 2.*Bt0/(r**2+P0**2)-4.*Bt0*r**2/(r**2+P0**2)**2
       CASE(11)
-        Bt_prime = Bt0*(1-lambd*r**2/2)/2-Bt0*r**2*lambd/2
+        Bt_prime = Bt0*(1-lambd*r**2/2.)/2.-Bt0*r**2*lambd/2.
     ENDSELECT
     RETURN
   END FUNCTION Bt_prime
@@ -186,7 +186,7 @@ CONTAINS
         & +0.3D1/0.16D2*Bt0**2*lambd-0.1D1/gamma*P0*Bz0**2)*r**4&
         & +0.2D1/0.3D1*Vp0*epsVp*r**3&
         & +(-Bt0**2/4+Vp0**2/2+2/gamma*P0*Bz0)*r**2&
-        & -0.1D1/gamma*P0
+        & -0.1D1/gamma*P0+P1
     ENDSELECT
     RETURN
   END FUNCTION P

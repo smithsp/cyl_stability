@@ -19,7 +19,7 @@ PROGRAM cyl
   LOGICAL :: Lend0
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2, equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp, rs, alpha, kB, Lend0
+  NAMELIST /cyl_params/ equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2,  lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp, rs, alpha, kB, Lend0
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -42,7 +42,7 @@ PROGRAM cyl
     CLOSE(1)
     WRITE(*,nml=cyl_params)
     IF (spline) THEN
-      IF((Vz0.eq.0).and.(Vp0.eq.0)) THEN
+      IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
         CALL bspline_deriv_sa()
         CALL plot_equilibrium
       ELSE
@@ -65,7 +65,7 @@ PROGRAM cyl
     CLOSE(1)
     WRITE(*,nml=cyl_params)
     IF (spline) THEN
-      IF((Vz0.eq.0).and.(Vp0.eq.0)) THEN
+      IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
         CALL bspline_deriv_sa()
         CALL plot_equilibrium
       ELSE
@@ -594,7 +594,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
-    CALL output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR) 
+    CALL output_evecs_spline(phi1,phi2,phi3,grid,VR) 
     DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv  
   SUBROUTINE plot_equilibrium
@@ -602,7 +602,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     INTEGER :: i
     REAL(r8), DIMENSION(N) :: grid, pressure, zb, tb, density, pv, zv, safety, pp, bzp, btp
     num_pts = N
-    grid = (/ (i*ar/(num_pts-1), i=0,num_pts-1) /)
+    grid = (/ (i*ar/real(num_pts-1), i=0,num_pts-1) /)
     pressure = P(grid)
     tb = Bt(grid)
     zb = Bz(grid)
@@ -624,7 +624,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE (*,'(a,i0,a,a)') 'Writing equilibrium data for run number ',num, ' to ',filename
     OPEN(1,file=filename,status='replace')
     DO i=1,num_pts
-      WRITE (1,'(g,g,g,g,g,g,g,g)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i), safety(i)
+      WRITE (1,'(8g25.16)') grid(i), pressure(i),zb(i),tb(i),density(i),pv(i),zv(i), safety(i)
     ENDDO
     CLOSE(1)
     IF (verbose) THEN
@@ -639,11 +639,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
 
   SUBROUTINE output_params(assemble_t,solve_t)
     REAL(r8), INTENT(IN) :: assemble_t,solve_t
-    IF(vcyl) THEN
-      WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.dat'
-    ELSE
-      WRITE(filename,'((a,i0),a)') 'output_cyl/', num,'.dat'
-    ENDIF
+    WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.dat'
     OPEN(1,file=filename,status='replace')
     IF (spline) THEN
       WRITE(1,'(a)') 'spline'
@@ -652,26 +648,23 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDIF
     WRITE(1,'(i)') N, NN, mt, equilib, num, nz
     WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp, rs, alpha
-    WRITE(1,'(l)') kB, Lend0
+    WRITE(1,'(l)') kB, Lend0, vcyl
     CLOSE(1)
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
     REAL(r8), DIMENSION(:), INTENT(IN) :: evalsr, evalsi
-    IF(vcyl) THEN
-      WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsr'
-    ELSE
-      WRITE(filename,'((a,i0),a)') 'output_cyl/', num,'.evalsr'
+    REAL(r8) :: omega_pow
+    omega_pow = 1.0
+    IF (.not.vcyl) THEN
+      omega_pow = 0.5
     ENDIF
+    WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsr'
     OPEN(1,file=filename,status='replace')
-    WRITE(1,'(g)') evalsr
+    WRITE(1,'(g)') real((evalsr+(0,1.0)*evalsi)**omega_pow)
     CLOSE(1)
-    IF(vcyl) THEN
-      WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsi'
-    ELSE
-      WRITE(filename,'((a,i0),a)') 'output_cyl/', num,'.evalsi'
-    ENDIF
+    WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsi'
     OPEN(1,file=filename,status='replace')
-    WRITE(1,'(g)') evalsi
+    WRITE(1,'(g)') aimag((evalsr+(0,1.0)*evalsi)**omega_pow)
     CLOSE(1)    
   END SUBROUTINE output_evals
   SUBROUTINE output_evecs_spline(phi1,phi2,phi3,grid,VR)
@@ -679,22 +672,26 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     REAL(r8), DIMENSION(:), INTENT(IN) :: grid
     REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
     TYPE(bspline), DIMENSION(size(phi1),3) :: phi
-    INTEGER :: N , i, j, k
+    INTEGER :: N , i, j, k, i_skip
     CHARACTER(LEN=30) FMT
+    i_skip = 3
+    IF (vcyl) THEN
+      i_skip=6
+    ENDIF
     phi = reshape((/phi1,phi2,phi3/),(/size(phi1),3/))
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'(a,i0,a)') 'output_cyl/',num,'.grid'
+    WRITE(filename,'(a,i0,a)') 'output_vcyl/',num,'.grid'
     OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     N = size(phi1)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     DO j=1,3
-      WRITE(filename,'(2(a,i0))') 'output_cyl/',num,'.evecs',j
+      WRITE(filename,'(2(a,i0))') 'output_vcyl/',num,'.evecs',j
       OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
-        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),3 )
+        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),i_skip )
       ENDDO
       CLOSE(1)
     ENDDO 
@@ -710,14 +707,14 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     phi = reshape((/phi2,phi3/),(/size(phi2),2/))
     N = size(grid)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'(a,i0,a)') 'output_cyl/', num,'.grid'
+    WRITE(filename,'(a,i0,a)') 'output_vcyl/', num,'.grid'
     OPEN(1,file=filename,status='replace')
     WRITE(1,FMT) (grid(i),',',i=1,size(grid))
     CLOSE(1)
     j=1
     N = size(phi1)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'(2(a,i0))') 'output_cyl/', num,'.evecs',j
+    WRITE(filename,'(2(a,i0))') 'output_vcyl/', num,'.evecs',j
     OPEN(1,file=filename,status='replace')
     DO k=1,size(VR(1,:))
       WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),3 )
@@ -726,7 +723,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     N = size(phi2)
     WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
     DO j=2,3
-      WRITE(filename,'(2(a,i0))') 'output_cyl/', num,'.evecs',j
+      WRITE(filename,'(2(a,i0))') 'output_vcyl/', num,'.evecs',j
       OPEN(1,file=filename,status='replace')
       DO k=1,size(VR(1,:))
         WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),3 )
@@ -734,29 +731,4 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       CLOSE(1)
     ENDDO 
   END SUBROUTINE output_evecs_linconst
-  SUBROUTINE output_evecs(phi1,phi2,phi3,phi4,phi5,phi6,grid,VR)
-    TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3,phi4,phi5,phi6
-    REAL(r8), DIMENSION(:), INTENT(IN) :: grid
-    REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
-    TYPE(bspline), DIMENSION(size(phi1),6) :: phi
-    INTEGER :: N , i, j, k
-    CHARACTER(LEN=30) FMT
-    phi = reshape((/phi1,phi2,phi3,phi4,phi5,phi6/),(/size(phi1),6/))
-    N = size(grid)
-    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.grid'
-    OPEN(1,file=filename,status='replace')
-    WRITE(1,FMT) (grid(i),',',i=1,size(grid))
-    CLOSE(1)
-    N = size(phi1)
-    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    DO j=1,6
-      WRITE(filename,'(2(a,i0))') 'output_vcyl/', num,'.evecs',j
-      OPEN(1,file=filename,status='replace')
-      DO k=1,size(VR(1,:))
-        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),6 )
-      ENDDO
-      CLOSE(1)
-    ENDDO 
-  END SUBROUTINE output_evecs
 END PROGRAM cyl
