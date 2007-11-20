@@ -16,14 +16,15 @@ PROGRAM cyl
   REAL(r8), DIMENSION(:,:), ALLOCATABLE :: VL
   CHARACTER(LEN=30) :: FMT, FMTR
   INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
-  LOGICAL :: Lend0
+  LOGICAL :: Lend0, Evecs
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ equilib, N, phi2_deriv, phi3_deriv, spline, epsilo, ar, br, kz, gamma, mt, rho0, eps, Bz0, Bt0, nz, s2,  lambd, P0, P1,  Vz0, epsVz, Vp0, epsVp, rs, alpha, kB, Lend0
+  NAMELIST /cyl_params/ equilib, N, kz, mt, ar, br, gamma, Lend0, Evecs, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
   phi3_deriv = .true.
+  Evecs = .false.
   CALL cpu_time(t1)
   it = 0.;  st = 0.;  at = 0.;  st1 = 0.;  st2 = 0.
   OPEN(1,file='control_params.in',status='old',form='formatted')
@@ -204,7 +205,11 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     C=A(:,:)
     D=B(:,:)
     CALL cpu_time(st1)
-    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    IF (Evecs) THEN
+      CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ELSE
+      CALL DGGEV('N','N',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ENDIF
     CALL cpu_time(st2)
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
@@ -341,7 +346,11 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     C=A(:,:)
     D=B(:,:)
     CALL cpu_time(st1)
-    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    IF (Evecs) THEN
+      CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ELSE
+      CALL DGGEV('N','N',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ENDIF
     CALL cpu_time(st2)
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
@@ -589,7 +598,11 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     C=A(:,:)
     D=B(:,:)
     CALL cpu_time(st1)
-    CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    IF (Evecs) THEN
+      CALL DGGEV('N','V',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ELSE
+      CALL DGGEV('N','N',NN,B,NN,A,NN,ALPHAR,ALPHAI,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,INFO)
+    ENDIF
     CALL cpu_time(st2)
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
@@ -614,12 +627,10 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     btp = Bt_prime(grid)
     safety(1) = 0.
     safety(2:N) = q(grid(2:N))
-    IF(vcyl) THEN
-      WRITE(filename,'(a,i0,a)') 'equilibria_vcyl/',num,'.txt'
-    ELSE
+    WRITE(filename,'(a,i0,a)') 'equilibria_vcyl/',num,'.txt'
+    IF(.not.vcyl) THEN
       pv = 0.
       zv = 0.
-      WRITE(filename,'(a,i0,a)') 'equilibria_cyl/',num,'.txt'
     ENDIF
     WRITE (*,'(a,i0,a,a)') 'Writing equilibrium data for run number ',num, ' to ',filename
     OPEN(1,file=filename,status='replace')
@@ -646,9 +657,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ELSE 
       WRITE(1,'(a)') 'linconst'
     ENDIF
-    WRITE(1,'(i)') N, NN, mt, equilib, num, nz
+    WRITE(1,'(i)') N, NN, mt, equilib, num
     WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp, rs, alpha
-    WRITE(1,'(l)') kB, Lend0, vcyl
+    WRITE(1,'(l)') Lend0, vcyl
     CLOSE(1)
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
@@ -674,27 +685,29 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     TYPE(bspline), DIMENSION(size(phi1),3) :: phi
     INTEGER :: N , i, j, k, i_skip
     CHARACTER(LEN=30) FMT
-    i_skip = 3
-    IF (vcyl) THEN
-      i_skip=6
-    ENDIF
-    phi = reshape((/phi1,phi2,phi3/),(/size(phi1),3/))
-    N = size(grid)
-    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    WRITE(filename,'(a,i0,a)') 'output_vcyl/',num,'.grid'
-    OPEN(1,file=filename,status='replace')
-    WRITE(1,FMT) (grid(i),',',i=1,size(grid))
-    CLOSE(1)
-    N = size(phi1)
-    WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
-    DO j=1,3
-      WRITE(filename,'(2(a,i0))') 'output_vcyl/',num,'.evecs',j
+    IF (Evecs) THEN
+      i_skip = 3
+      IF (vcyl) THEN
+        i_skip=6
+      ENDIF
+      phi = reshape((/phi1,phi2,phi3/),(/size(phi1),3/))
+      N = size(grid)
+      WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
+      WRITE(filename,'(a,i0,a)') 'output_vcyl/',num,'.grid'
       OPEN(1,file=filename,status='replace')
-      DO k=1,size(VR(1,:))
-        WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),i_skip )
-      ENDDO
+      WRITE(1,FMT) (grid(i),',',i=1,size(grid))
       CLOSE(1)
-    ENDDO 
+      N = size(phi1)
+      WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
+      DO j=1,3
+        WRITE(filename,'(2(a,i0))') 'output_vcyl/',num,'.evecs',j
+        OPEN(1,file=filename,status='replace')
+        DO k=1,size(VR(1,:))
+          WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),i_skip )
+        ENDDO
+        CLOSE(1)
+      ENDDO 
+    ENDIF
   END SUBROUTINE output_evecs_spline
   SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,grid,VR)
     TYPE(linear), DIMENSION(:), INTENT(IN) :: phi1

@@ -2,7 +2,7 @@ MODULE cyl_funcs_module
   USE local
   IMPLICIT NONE
   REAL(r8), EXTERNAL :: s17aef, s17aff
-  INTEGER :: mt, equilib, ifail, nz  !m_theta, choice of equilibrium configuration, 
+  INTEGER :: mt, equilib, ifail  !m_theta, choice of equilibrium configuration, 
   REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
   REAL(r8) :: Vz0, epsVz, Vp0, epsVp
   REAL(r8) :: rs, alpha ! These are parameters for localizing the grid around rs
