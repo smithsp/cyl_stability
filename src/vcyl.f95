@@ -664,18 +664,20 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
   END SUBROUTINE output_params
   SUBROUTINE output_evals(evalsr,evalsi)
     REAL(r8), DIMENSION(:), INTENT(IN) :: evalsr, evalsi
-    REAL(r8) :: omega_pow
-    omega_pow = 1.0
+    REAL(r8), DIMENSION(size(evalsr)) :: evalsr1, evalsi1
+    evalsr1 = evalsr
+    evalsi1 = evalsi
     IF (.not.vcyl) THEN
-      omega_pow = 0.5
+      evalsr1 = real((evalsr+(0,1.0)*evalsi)**0.5)
+      evalsi1 = aimag((evalsr+(0,1.0)*evalsi)**0.5)
     ENDIF
     WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsr'
     OPEN(1,file=filename,status='replace')
-    WRITE(1,'(g)') real((evalsr+(0,1.0)*evalsi)**omega_pow)
+    WRITE(1,'(g)') evalsr1
     CLOSE(1)
     WRITE(filename,'((a,i0),a)') 'output_vcyl/', num,'.evalsi'
     OPEN(1,file=filename,status='replace')
-    WRITE(1,'(g)') aimag((evalsr+(0,1.0)*evalsi)**omega_pow)
+    WRITE(1,'(g)') evalsi1
     CLOSE(1)    
   END SUBROUTINE output_evals
   SUBROUTINE output_evecs_spline(phi1,phi2,phi3,grid,VR)
