@@ -20,7 +20,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B11
-    B11 = (rho(r))*(mt*Vp(r)/2.*(1-1/mt**2)+kz*Vz(r)*(1+1./mt**2))
+    B11 = (rho(r))*(mt*Vp(r)*(1-1/mt**2)+kz*Vz(r)*(1+1./mt**2))
   END FUNCTION B11
   FUNCTION B12(r)
     IMPLICIT NONE
@@ -38,7 +38,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B22
-    B22 = rho(r)*r**2/mt**2*(kz*Vz(r)+mt*Vp(r)/2.)
+    B22 = rho(r)*r**2/mt**2*(kz*Vz(r)+mt*Vp(r))
   END FUNCTION B22
   FUNCTION A33(r)
     IMPLICIT NONE
@@ -50,7 +50,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B33
-    B33 = rho(r)/kz**2*(kz*Vz(r)+mt*Vp(r)/2.)
+    B33 = rho(r)/kz**2*(kz*Vz(r)+mt*Vp(r))
   END FUNCTION B33
   FUNCTION B41a(r)
     IMPLICIT NONE
