@@ -19,7 +19,7 @@ PROGRAM cyl
   LOGICAL :: Lend0, Evecs
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ equilib, N, kz, mt, ar, br, gamma, Lend0, Evecs, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
+  NAMELIST /cyl_params/ equilib, N, kz, mt, ar, br, tw, gamma, Lend0, Evecs, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -42,18 +42,20 @@ PROGRAM cyl
     WRITE(1,nml=cyl_params)
     CLOSE(1)
     WRITE(*,nml=cyl_params)
-    IF (spline) THEN
-      IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
-        CALL bspline_deriv_sa()
-        CALL plot_equilibrium
+    IF (spline) THEN      
+      IF (br.gt.ar) THEN
+        CALL bspline_deriv_rw
       ELSE
-        CALL bspline_deriv()   
-        CALL plot_equilibrium  
+        IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
+          CALL bspline_deriv_sa
+        ELSE
+          CALL bspline_deriv
+        ENDIF
       ENDIF
     ELSE 
-      CALL linear_const_sa()
-      CALL plot_equilibrium  
+      CALL linear_const_sa
     ENDIF
+    CALL plot_equilibrium  
   ENDIF
   DO num = start,fin
     WRITE(filename,'(a,i0,a)') 'input/',num,'.in'
@@ -65,18 +67,20 @@ PROGRAM cyl
     WRITE(1,nml=cyl_params)
     CLOSE(1)
     WRITE(*,nml=cyl_params)
-    IF (spline) THEN
-      IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
-        CALL bspline_deriv_sa()
-        CALL plot_equilibrium
+    IF (spline) THEN      
+      IF (br.gt.ar) THEN
+        CALL bspline_deriv_rw
       ELSE
-        CALL bspline_deriv()   
-        CALL plot_equilibrium  
+        IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
+          CALL bspline_deriv_sa
+        ELSE
+          CALL bspline_deriv
+        ENDIF
       ENDIF
     ELSE 
-      CALL linear_const_sa()
-      CALL plot_equilibrium  
+      CALL linear_const_sa
     ENDIF
+    CALL plot_equilibrium  
   ENDDO
   CALL cpu_time(t2)
   WRITE (0,*) 'Time taken: ', t2-t1, ' seconds.'
@@ -383,7 +387,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE (*,*) 'The linear finite elements are not implemented for the velocity formulation.'
   END SUBROUTINE linear_const
   
-  
   SUBROUTINE bspline_deriv()
     IMPLICIT NONE
     TYPE(bspline), DIMENSION(:), ALLOCATABLE :: phi1, phi2, phi3, phi4, phi5, phi6
@@ -609,7 +612,351 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs_spline(phi1,phi2,phi3,grid,VR) 
     DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
-  END SUBROUTINE bspline_deriv  
+  END SUBROUTINE bspline_deriv
+  SUBROUTINE bspline_deriv_rw()
+    IMPLICIT NONE
+    COMPLEX(r8), DIMENSION(:), ALLOCATABLE :: ALPHA, BETA, WORK
+    COMPLEX(r8), DIMENSION(:,:), ALLOCATABLE :: A, B, C, D, VR, VL
+    TYPE(bspline), DIMENSION(:), ALLOCATABLE :: phi1, phi2, phi3, phi4, phi5, phi6
+    INTEGER :: lower1, upper1
+    vcyl = .true.
+  ! Decide if there should be an element that allows phi1(r=0).ne.0
+    IF (abs(mt).eq.1.and.(.not.Lend0)) THEN
+      lower1=0
+    ELSE
+      lower1=1
+    ENDIF
+  ! The wall is not at the plasma surface  
+    CALL init_bc
+    upper1 = N+1
+    
+  ! Allocate the grid, finite elements, vectors, and matrices
+    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
+    ALLOCATE(grid(N))    
+    ALLOCATE(phi1(lower1:upper1),phi2(lower1:upper1),phi3(lower1:upper1),phi4(lower1:upper1),phi5(lower1:upper1),phi6(lower1:upper1))
+    NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
+    LWORK=10*NN
+    ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(LWORK))
+    LDVR = NN
+
+  ! Initialize the grid
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
+    grid = new_grid(grid)
+  
+  ! Set the upper and lower bounds
+    lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
+    upper = (/ubound(phi1,1), ubound(phi2,1), ubound(phi3,1), ubound(phi4,1), ubound(phi5,1), ubound(phi6,1), ubound(phi1,1), ubound(phi2,1), ubound(phi3,1)/) 
+  ! Initialize the finite elements  
+    IF(lower(1).eq.0)   CALL init(phi1(0),grid(1),p3=grid(2),LendZero=.true.)
+    IF(lower(1).le.1)   CALL init(phi1(1),grid(1),p3=grid(2),p4=grid(3),LendZero=.true.)
+    IF(lower(1).le.2)   CALL init(phi1(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),LendZero=.true.)
+    CALL init(phi1(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N))
+    CALL init(phi1(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),RendZero=.true.)
+    CALL init(phi1(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.)
+    IF(upper(1).eq.N+1) CALL init(phi1(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
+    phi2 = phi1
+    phi3 = phi1
+    phi4 = phi1
+    phi5 = phi1
+    phi6 = phi1
+    phi2%deriv = phi2_deriv
+    phi3%deriv = phi3_deriv
+    phi5%deriv = phi2_deriv
+    phi6%deriv = phi3_deriv
+    
+  ! Set some format specifiers for outputting matrices
+    WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
+    WRITE(FMTR,'(a,I,a)') '(',nphi1,'G20.11)'
+    
+  ! Initialize the matrices needed for the eigenvalue/eigenvector solver
+    A = 0.
+    B = 0.
+    k = 1
+    m = k+3
+    CALL cpu_time(at1)
+    DO i=lower(m),upper(m)
+      l = 1
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi1(j),A11)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi4(i),phi1(j),B11)
+      ENDDO
+      l = 2
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi2(j),A12)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi2(j),phi4(i),B12)
+      ENDDO
+      l = 4
+      DO j=i,min(i+3,upper(l))
+        temp = int_func(phi4(j),phi4(i),A11)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
+        IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
+      ENDDO
+      l = 5
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(j),phi4(i),A12)
+      ENDDO
+    ENDDO
+    k = 2
+    m = k+3
+    DO i=lower(m),upper(m)
+      l = 1
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi1(j),A12)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi1(j),B12)
+      ENDDO
+      l = 2
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),A22)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),B22)
+      ENDDO
+      l = 4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+5)
+      ENDDO
+      l = 5
+      DO j=i,min(i+3,upper(l))
+        temp = int_func(phi5(i),phi5(j),A22)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
+        IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
+      ENDDO
+    ENDDO
+    k = 3
+    m = k+3
+    DO i=lower(m),upper(m)
+      l = 3
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi6(i),phi3(j),A33)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi6(i),phi3(j),B33)
+      ENDDO
+      l = 6
+      DO j=i,min(i+3,upper(l))
+        temp = int_func(phi6(i),phi6(j),A33)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
+        IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
+      ENDDO
+    ENDDO
+    k = 4
+    m = k-3
+    DO i=lower(m),upper(m)
+      l = 1
+      DO j=i,min(i+3,upper(l))
+        tempA = int_func(phi1(i),phi1(j),B41a,deriv1=.true.,deriv2=.true.)
+        tempB = int_func(phi1(i),phi1(j),B41b,deriv2=.true.)+int_func(phi1(i),phi1(j),B41b,deriv1=.true.)
+        tempC = int_func(phi1(i),phi1(j),B41c)
+        temp = tempA+tempB+tempC
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
+        IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
+      ENDDO
+      l = 2
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        tempB = int_func(phi1(i),phi2(j),B42b,deriv1=.true.)
+        tempC = int_func(phi1(i),phi2(j),B42c)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC
+      ENDDO
+      l = 3
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        tempB = int_func(phi1(i),phi3(j),B43b,deriv1=.true.)
+        tempC = int_func(phi1(i),phi3(j),B43c)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC
+      ENDDO
+      l = 4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi1(i),phi4(j),A11)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+m,6*(i-lower(m))+m)
+      ENDDO
+      l = 5
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+2,6*(i-lower(m))+1)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+2,6*(i-lower(m))+1)
+      ENDDO
+    ENDDO
+    k = 5
+    m = k-3
+    DO i=lower(m),upper(m)
+      l = 1
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+4,6*(i-lower(m))+2)
+      ENDDO
+      l = 2
+      DO j=i,min(i+3,upper(l))
+        tempB = int_func(phi2(i),phi2(j),B52)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB
+        IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = tempB
+      ENDDO
+      l = 3
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi2(i),phi3(j),B53)
+      ENDDO
+      l = 4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+1,6*(i-lower(m))+2)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+2)
+      ENDDO
+      l = 5
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+2,6*(i-lower(m))+2)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+2,6*(i-lower(m))+2)
+      ENDDO
+    ENDDO
+    k = 6
+    m = k-3
+    DO i=lower(m),upper(m)
+      l = 1
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+4,6*(i-lower(m))+3)
+      ENDDO
+      l = 2
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+5,6*(i-lower(m))+3)
+      ENDDO
+      l = 3
+      DO j=i,min(i+3,upper(l))
+        tempB = int_func(phi3(i),phi3(j),B63)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB
+        IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = tempB
+      ENDDO
+      l = 6
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+3,6*(i-lower(m))+3)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
+      ENDDO
+    ENDDO
+    ! These are the extra terms after integrating by parts.
+    k = 4
+    m = k-3
+    DO i=lower(m),upper(m)
+      l = 1
+      DO j=i,min(i+3,upper(l))
+        D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(-val_prime(phi1(j),ar)*(Bt((/ar/))**2+Bz((/ar/))**2+gamma*p((/ar/)))-& 
+        & kz/mt*Bz((/ar/))*Bt((/ar/))*val(phi1(j),ar))*val(phi1(i),ar)*ar
+      ENDDO
+      l = 2
+      DO j=i,min(i+3,upper(l))
+        D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval((Bz((/ar/))*ar**2/mt*kz*Bt((/ar/))-ar*gamma*p((/ar/))-ar*Bz((/ar/))**2)*&
+        & val(phi1(i),ar)*val(phi2(j),ar))
+      ENDDO
+      l = 3
+      DO j=i,min(i+3,upper(l))
+        D(6*(i-lower(m))+k,6*(j-lower(l))+l) = -minval(-(mt*Bz((/ar/))*Bt((/ar/))/kz-ar*Bt((/ar/))**2-&
+        & ar*gamma*p((/ar/)))*val(phi1(i),ar)*val(phi3(j),ar)+&
+        & mt*Bz((/0./))*Bt((/0./))/kz*val(phi1(i),0.0D0)*val(phi3(j),0.0D0))
+      ENDDO
+    ENDDO
+    B=B+D
+    ! This is the resistive wall BC
+    k=6
+    i=N+1
+    l=1
+    m=k-3
+    DO j=max(i-3,lower(l)),min(i+3,upper(l))
+      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+      & (((-ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))-ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-&
+      & 2*ar**2*br*kz**2*p_prime((/ar/))-ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Ladot+&
+      & (2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar+br*kz*Bt((/ar/))**2*mt**2+br*kz**3*Bz((/ar/))**2*ar**2)*La)*Kbdot**2+&
+      & ((ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))+2*ar**2*br*kz**2*p_prime((/ar/))+&
+      & ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))+ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Kadot+&
+      & (-br*kz**3*Bz((/ar/))**2*ar**2-br*kz*Bt((/ar/))**2*mt**2-2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar)*Ka)*&
+      & Lbdot*Kbdot)*tw*val(phi1(j),ar)+&
+      & ((-ar**2*br*kz**2*Bt((/ar/))**2-ar**2*br*kz**2*Bz((/ar/))**2-2*ar**2*br*kz**2*gamma*p((/ar/)))*Ladot*Kbdot**2+&
+      & (2*ar**2*br*kz**2*gamma*p((/ar/))+ar**2*br*kz**2*Bz((/ar/))**2+ar**2*br*kz**2*Bt((/ar/))**2)*&
+      & Kadot*Lbdot*Kbdot)*tw*val_prime(phi1(j),ar))
+      
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*(minval(&
+      & (-(-2*ar**2*kz*mt**3*p_prime((/ar/))-ar**2*mt**2*Bt((/ar/))*kz**2*Bz((/ar/))-&
+      & ar**2*kz*mt**3*Bt((/ar/))*Bt_prime((/ar/))-ar**2*kz*mt**3*Bz((/ar/))*Bz_prime((/ar/))-&
+      & ar**2*kz**3*br**2*Bt((/ar/))*Bt_prime((/ar/))*mt-ar**2*kz**3*br**2*Bz((/ar/))*Bz_prime((/ar/))*mt-&
+      & ar**2*kz**4*br**2*Bt((/ar/))*Bz((/ar/))-2*ar**2*kz**3*br**2*p_prime((/ar/))*mt)*&
+      & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot-(kz**4*br**2*Bz((/ar/))**2*ar**2*mt+mt**3*kz**2*Bz((/ar/))**2*ar**2+&
+      & kz**2*br**2*Bt((/ar/))**2*mt**3+mt**5*Bt((/ar/))**2+&
+      & 2*mt**4*Bt((/ar/))*kz*Bz((/ar/))*ar+2*kz**3*br**2*Bt((/ar/))*mt**2*Bz((/ar/))*ar)*& 
+      & (Lb*Kbdot-Kb*Lbdot)/mt*Ka)*val(phi1(j),ar)-&
+      & (-ar**2*mt*kz**3*br**2*Bz((/ar/))**2-ar**2*mt**3*kz*Bz((/ar/))**2-&
+      & 2*ar**2*mt*kz**3*br**2*gamma*p((/ar/))-ar**2*mt**3*kz*Bt((/ar/))**2-&
+      & ar**2*mt*kz**3*br**2*Bt((/ar/))**2-2*ar**2*mt**3*kz*gamma*p((/ar/)))*&
+      & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot*val_prime(phi1(j),ar)))
+    ENDDO
+    l=2
+    DO j=max(i-3,lower(l)),min(i+3,upper(l))
+      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+      & ((-ar**2*br*kz**2*Bz((/ar/))**2+ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/)))*&
+      & Ladot*Kbdot**2+(ar**2*br*kz**2*Bz((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-&
+      & ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/)))*Kadot*Lbdot*Kbdot)*tw*val(phi2(j),ar))
+      
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = -cmplx(0,1,r8)*minval(&
+      & ar**2*kz*val(phi2(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)/mt*&
+      & (-2*kz**2*br**2*gamma*p((/ar/))*mt-kz**2*br**2*Bz((/ar/))**2*mt+ar*kz**3*br**2*Bt((/ar/))*Bz((/ar/))-&
+      & mt**3*Bz((/ar/))**2+ar*mt**2*Bt((/ar/))*kz*Bz((/ar/))-2*mt**3*gamma*p((/ar/))))
+    ENDDO
+    l=3
+    DO j=max(i-3,lower(l)),min(i+3,upper(l))
+      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+      & ((ar*mt*br*kz*Bz((/ar/))*Bt((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/))-ar**2*br*kz**2*Bt((/ar/))**2)*Ladot*Kbdot**2+&
+      & (ar**2*br*kz**2*Bt((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-ar*mt*br*kz*Bz((/ar/))*Bt((/ar/)))*&
+      & Kadot*Lbdot*Kbdot)*val(phi3(j),ar)*tw)
+      
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*minval(&
+      & ar*val(phi3(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)*&
+      & (2*ar*kz**3*br**2*gamma*p((/ar/))+ar*kz**3*br**2*Bt((/ar/))**2+ar*mt**2*Bt((/ar/))**2*kz-&
+      & mt**3*Bz((/ar/))*Bt((/ar/))-mt*kz**2*br**2*Bz((/ar/))*Bt((/ar/))+2*ar*mt**2*kz*gamma*p((/ar/))))
+    ENDDO
+    l=4
+    DO j=max(i-3,lower(l)),min(i+3,upper(l))
+      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+    ENDDO
+    l=5
+    DO j=max(i-3,lower(l)),min(i+3,upper(l))
+      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+    ENDDO
+    l=6
+    DO j=max(i-3,lower(l)),min(i+3,upper(l))
+      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+    ENDDO
+    CALL cpu_time(at2)
+    at = at+at2-at1
+    IF(verbose) THEN
+      OPEN(1,status='replace',file='A.txt')
+      WRITE (1,*) 'A='
+      WRITE (1,FMT) REAL(transpose(A))
+      CLOSE(1)
+      OPEN(1,status='replace',file='B.txt')
+      WRITE (1,*) 'B='
+      WRITE (1,FMT) REAL(transpose(B))
+      CLOSE(1)
+      OPEN(1,status='replace',file='BI.txt')
+      WRITE (1,*) 'BI='
+      WRITE (1,FMT) AIMAG(transpose(B))
+      CLOSE(1)
+      OPEN(1,status='replace',file='D.txt')
+      WRITE (1,*) 'D='
+      WRITE (1,FMT) transpose(D)
+      CLOSE(1)
+    ENDIF
+    WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
+    CALL cpu_time(st1)
+    IF (Evecs) THEN
+      CALL ZGGEV('N','V',NN,B,NN,A,NN,ALPHA,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,RWORK,INFO)
+    ELSE
+      CALL ZGGEV('N','N',NN,B,NN,A,NN,ALPHA,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,RWORK,INFO)
+    ENDIF
+    CALL cpu_time(st2)
+    st = st+st2-st1
+    CALL output_params(at2-at1,st2-st1)
+    WRITE (*,*) 'ALPHA = '
+    WRITE (*,'(2G)') ALPHA
+    WRITE (*,*) 'BETA = '
+    WRITE (*,'(2G)') BETA
+    IF (maxval(abs(AIMAG(BETA))).EQ.0) THEN
+      CALL output_evals(REAL(ALPHA)/REAL(BETA),AIMAG(ALPHA)/REAL(BETA))
+    ELSE
+      CALL output_evals(REAL(ALPHA/BETA),AIMAG(ALPHA/BETA))
+    ENDIF
+    !CALL output_evecs_spline(phi1,phi2,phi3,grid,VR) 
+    DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHA,BETA,RWORK,WORK) 
+  END SUBROUTINE bspline_deriv_rw 
+  
   SUBROUTINE plot_equilibrium
     INTEGER num_pts
     INTEGER :: i
@@ -658,7 +1005,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE(1,'(a)') 'linconst'
     ENDIF
     WRITE(1,'(i)') N, NN, mt, equilib, num
-    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp, rs, alpha
+    WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, br, tw, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp, rs, alpha
     WRITE(1,'(l)') Lend0, vcyl
     CLOSE(1)
   END SUBROUTINE output_params

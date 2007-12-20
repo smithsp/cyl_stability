@@ -2,6 +2,7 @@ MODULE vcyl_funcs_module
   USE local
   USE cyl_funcs_module
   IMPLICIT NONE
+  REAL(r8) :: Kbdot, Lbdot, Kb, Lb, Kadot, Ladot, Ka, La, tw
 CONTAINS
   ELEMENTAL FUNCTION Vz(r)
     IMPLICIT NONE
@@ -23,10 +24,9 @@ CONTAINS
     epsr = epsilon(r)
     SELECT CASE (equilib)
       CASE(1:2)
-        ! In making the following change to ensure equilibrium, there was a noticable slowdown
-        Vp = 0! sqrt(((P(r+epsr)-P(r))/epsr + Bmag(r)*(Bmag(r+epsr)-Bmag(r))/epsr+Bt(r)**2/r)/(rho(r)*r)) 
+        Vp = 0
       CASE(3:10)
-        Vp = 0! Vp0*(1-epsVp*r**2/ar**2)
+        Vp = 0
       CASE(11)
         Vp = Vp0+epsVp*r+eps*r**2
     ENDSELECT
@@ -37,4 +37,25 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: equilibrium_V
     equilibrium_V = P_prime(r) + Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+Bt(r)**2/r-rho(r)*r*Vp(r)**2
   END FUNCTION equilibrium_V
+  SUBROUTINE init_bc
+    COMPLEX(r8), DIMENSION(1) :: res
+    INTEGER :: nz, ifail
+    ifail = 0
+    CALL s18dcf(real(abs(mt)  ,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
+    Ka = REAL(res(1))
+    CALL s18dcf(real(abs(mt)+1,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
+    Kadot = -REAL(res(1))+abs(mt)/kz/ar*Ka
+    CALL s18dcf(real(abs(mt)  ,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+    Kb = REAL(res(1))
+    CALL s18dcf(real(abs(mt)+1,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+    Kbdot = -REAL(res(1))+abs(mt)/kz/br*Kb
+    CALL s18def(real(abs(mt)  ,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
+    La = REAL(res(1))
+    CALL s18def(real(abs(mt)+1,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
+    Ladot = REAL(res(1))+abs(mt)/kz/ar*La
+    CALL s18def(real(abs(mt)  ,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+    Lb = REAL(res(1))
+    CALL s18def(real(abs(mt)+1,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+    Lbdot = REAL(res(1))+abs(mt)/kz/br*Lb
+  END SUBROUTINE init_bc
 END MODULE vcyl_funcs_module

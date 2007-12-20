@@ -1,5 +1,5 @@
 FC=/usr/pppl/lff95/6.20c/bin/lf95 
-FCOPTS=--dbl 
+FCOPTS=--dbl
 LAPACK=/usr/pppl/lff95/6.20c/lapack-3.0
 LOCAL=local
 FEMOD=finite_elements_module
@@ -41,7 +41,7 @@ vcyl.o: ${SRCDIR}/vcyl.f95
 cyl.o:  ${SRCDIR}/cyl.f95
 	${FC} $? ${FCOPTS} -c
 test_nag.o: ${SRCDIR}/test_nag.f95
-	${FC} $? ${FCOPTS} -c
+	${FC} $? ${FCOPTS} -c ${MODDIR}
 plot_equilibrium.o: ${SRCDIR}/plot_equilibrium.f95
 	${FC} $? ${FCOPTS} -c
 test_eq.o: ${SRCDIR}/test_eq.f95
@@ -52,11 +52,11 @@ vcyl: ${VOBJ}
 	${FC} ${VOBJ} ${FCOPTS} -o vcyl.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
 testfe: local.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o ${TESTFE}.o sort_module.o
 	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o sort_module.o ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS} ${NAG_LIBDIR} ${NAG_LIBS} -o testfe.exe
-testnag: test_nag.o
-	${FC} test_nag.o ${FCOPTS}  ${NAG_LIBDIR} ${NAG_LIBS}  -o testnag.exe 
+testnag: local.o test_nag.o
+	${FC} test_nag.o ${FCOPTS} ${MODDIR} ${NAG_LIBDIR} ${NAG_LIBS}  -o testnag.exe 
 plot_eq: ${EQOBJ} plot_equilibrium.o
 	${FC}  ${EQOBJ} plot_equilibrium.o ${FCOPTS}  ${NAG_LIBDIR} ${NAG_LIBS}  -o plot_eq.exe 
 test_eq: local.o ${CYLFUNCS}.o ${VCYLFUNCS}.o test_eq.o
 	${FC} test_eq.o local.o ${CYLFUNCS}.o ${VCYLFUNCS}.o ${FCOPTS} -o test_eq.exe ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
 clean:
-	rm *.o *.mod *.exe
+	rm -f *.o *.mod *.exe

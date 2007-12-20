@@ -7,7 +7,7 @@ MODULE cyl_funcs_module
   REAL(r8) :: Vz0, epsVz, Vp0, epsVp
   REAL(r8) :: rs, alpha ! These are parameters for localizing the grid around rs
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
-  LOGICAL :: kB  !This is a switch to calculate the resonant surface at which kB=0 (instead of where k_\parallel=0)
+
 CONTAINS
   FUNCTION alfven_range(r)
     IMPLICIT NONE
@@ -202,7 +202,7 @@ CONTAINS
         P_prime = -Bt0**2*(2*r/ar**2)
       CASE(4)
         DO i=1,size(r)
-          P_prime(i) = -P1*lambd*s17aef(lambd*r(i),ifail)*s17aff(lambd*r(i))
+          P_prime(i) = -P1*lambd*s17aef(lambd*r(i),ifail)*s17aff(lambd*r(i),ifail)
         ENDDO
       CASE(6)
         P_prime = P0*(-2*eps*r/ar**2)
@@ -279,11 +279,8 @@ CONTAINS
     REAL(r8), DIMENSION(size(grid)-1) :: y
     INTEGER :: rs_ind, ng
     ng = size(grid)
-    rs = -mt/kz!minval(grid(minloc(abs(mt+kz*grid(2:)))+1))
-    IF (kB) THEN
-      y = (mt*Bt(grid(2:))+kz*Bz(grid(2:))*grid(2:))
-      rs_ind = minval(minloc(y(2:ng-1)*y(3:)))
-      rs = (grid(rs_ind+1)*y(rs_ind+1)-y(rs_ind)*grid(rs_ind+2))/(y(rs_ind+1)-y(rs_ind)) !Linear interpolation
-    ENDIF
+    y = (mt*Bt(grid(2:))+kz*Bz(grid(2:))*grid(2:))
+    rs_ind = minval(minloc(y(2:ng-1)*y(3:)))
+    rs = (grid(rs_ind+1)*y(rs_ind+1)-y(rs_ind)*grid(rs_ind+2))/(y(rs_ind+1)-y(rs_ind)) !Linear interpolation
   END SUBROUTINE calc_rs
 END MODULE cyl_funcs_module

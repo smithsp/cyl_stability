@@ -347,10 +347,9 @@ CONTAINS
       IF(minval(dx(1:3))<=0) THEN
         this%error = .true.
       ENDIF
-      !this%error = .true.
       ! These are the coefficients for x^n, n=0..3      
            
-      !These are for val(spline,x=xj+dx[3])=0, diff(spline,x)@x=xj+dx[3].eq.0, diff(spline,x)@x=xj+dx[3].ne.0
+      !These are for val(spline,x=xj+dx[3])=0, diff(spline,x)@x=xj+dx[3].eq.0, diff(spline,x,x)@x=xj+dx[3].ne.0
       num1 = 2*(dx(3)+dx(2))**2/dx(1)/(dx(2)+dx(1))/dx(3)/&
       &(dx(1)*dx(3)+2*dx(2)*dx(1)+2*dx(2)**2+2*dx(2)*dx(3))
       A(0) = -(xj - dx(2) - dx(1)) ** 3 * num1 / 0.3D1
@@ -404,8 +403,9 @@ CONTAINS
 
       D = 0.   
      
-    ELSEIF((this%extent(1).eq.0).and.(this%extent(2).eq.2).and.(Lend0)) THEN !.and.(.not.this%deriv)
-      ! These are the coefficients for x^n, n=0..3      
+    ELSEIF((this%extent(1).eq.0).and.(this%extent(2).eq.2).and.(Lend0)) THEN 
+      ! This is a left hand element
+      ! These are the coefficients for x^n, n=0..3  
       A = 0.
       B = 0.
       
@@ -429,6 +429,9 @@ CONTAINS
       D(3) = -num4/0.3D1
 
     ELSEIF((this%extent(1).eq.2).and.(this%extent(2).eq.0).and.Rend0) THEN
+      ! This is a right hand element
+      ! These are the coefficients for x^n, n=0..3    
+      ! These are for val(spline,xj)=0, diff(spline,x)@x=xj.ne.0, diff(spline,x,x)@x=xj.ne.0  
       num1 = 2/dx(1)**3
       A(0) = -(xj-dx(1)-dx(2))**3*num1/0.3D1
       A(1) = (xj-dx(1)-dx(2))**2*num1
@@ -452,6 +455,7 @@ CONTAINS
       
       C = 0.;  D = 0.
     ELSEIF((this%extent(1).eq.1).and.(this%extent(2).eq.0).and.Rend0) THEN
+      ! This is a right hand element
       num2 = 2 / dx(2) ** 3
       B(0) = -(xj - dx(2)) ** 3 * num2 / 0.6D1
       B(1) = (xj - dx(2)) ** 2 * num2 / 0.2D1
