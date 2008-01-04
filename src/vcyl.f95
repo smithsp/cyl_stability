@@ -1,3 +1,4 @@
+Fri Jan  4 15:20:42 EST 2008
 PROGRAM cyl
   USE local
   USE cyl_matrix_module
@@ -631,9 +632,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     upper1 = N+1
     
   ! Allocate the grid, finite elements, vectors, and matrices
+    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
     ALLOCATE(grid(N))    
     ALLOCATE(phi1(lower1:upper1),phi2(lower1:upper1),phi3(lower1:upper1),phi4(lower1:upper1),phi5(lower1:upper1),phi6(lower1:upper1))
-    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
     NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
     LWORK=10*NN
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(LWORK))
@@ -821,11 +822,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
       ENDDO
     ENDDO
-    
     ! These are the extra terms after integrating by parts.
     k = 4
     m = k-3
-    D = 0
     DO i=lower(m),upper(m)
       l = 1
       DO j=i,min(i+3,upper(l))
@@ -845,7 +844,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO
     ENDDO
     B=B+D
-    
     ! This is the resistive wall BC
     k=1
     i=N+1
@@ -859,12 +857,12 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       & ((ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))+2*ar**2*br*kz**2*p_prime((/ar/))+&
       & ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))+ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Kadot+&
       & (-br*kz**3*Bz((/ar/))**2*ar**2-br*kz*Bt((/ar/))**2*mt**2-2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar)*Ka)*&
-      & Lbdot*Kbdot)*val(phi1(j),ar)+&
+      & Lbdot*Kbdot)*tw*val(phi1(j),ar)+&
       & ((-ar**2*br*kz**2*Bt((/ar/))**2-ar**2*br*kz**2*Bz((/ar/))**2-2*ar**2*br*kz**2*gamma*p((/ar/)))*Ladot*Kbdot**2+&
       & (2*ar**2*br*kz**2*gamma*p((/ar/))+ar**2*br*kz**2*Bz((/ar/))**2+ar**2*br*kz**2*Bt((/ar/))**2)*&
-      & Kadot*Lbdot*Kbdot)*val_prime(phi1(j),ar))
+      & Kadot*Lbdot*Kbdot)*tw*val_prime(phi1(j),ar))
       
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)/tw*(minval(&
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*(minval(&
       & (-(-2*ar**2*kz*mt**3*p_prime((/ar/))-ar**2*mt**2*Bt((/ar/))*kz**2*Bz((/ar/))-&
       & ar**2*kz*mt**3*Bt((/ar/))*Bt_prime((/ar/))-ar**2*kz*mt**3*Bz((/ar/))*Bz_prime((/ar/))-&
       & ar**2*kz**3*br**2*Bt((/ar/))*Bt_prime((/ar/))*mt-ar**2*kz**3*br**2*Bz((/ar/))*Bz_prime((/ar/))*mt-&
@@ -883,9 +881,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
       & ((-ar**2*br*kz**2*Bz((/ar/))**2+ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/)))*&
       & Ladot*Kbdot**2+(ar**2*br*kz**2*Bz((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-&
-      & ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/)))*Kadot*Lbdot*Kbdot)*val(phi2(j),ar))
+      & ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/)))*Kadot*Lbdot*Kbdot)*tw*val(phi2(j),ar))
       
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = -cmplx(0,1,r8)/tw*minval(&
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = -cmplx(0,1,r8)*minval(&
       & ar**2*kz*val(phi2(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)/mt*&
       & (-2*kz**2*br**2*gamma*p((/ar/))*mt-kz**2*br**2*Bz((/ar/))**2*mt+ar*kz**3*br**2*Bt((/ar/))*Bz((/ar/))-&
       & mt**3*Bz((/ar/))**2+ar*mt**2*Bt((/ar/))*kz*Bz((/ar/))-2*mt**3*gamma*p((/ar/))))
@@ -895,9 +893,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
       & ((ar*mt*br*kz*Bz((/ar/))*Bt((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/))-ar**2*br*kz**2*Bt((/ar/))**2)*Ladot*Kbdot**2+&
       & (ar**2*br*kz**2*Bt((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-ar*mt*br*kz*Bz((/ar/))*Bt((/ar/)))*&
-      & Kadot*Lbdot*Kbdot)*val(phi3(j),ar))
+      & Kadot*Lbdot*Kbdot)*val(phi3(j),ar)*tw)
       
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)/tw*minval(&
+      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*minval(&
       & ar*val(phi3(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)*&
       & (2*ar*kz**3*br**2*gamma*p((/ar/))+ar*kz**3*br**2*Bt((/ar/))**2+ar*mt**2*Bt((/ar/))**2*kz-&
       & mt**3*Bz((/ar/))*Bt((/ar/))-mt*kz**2*br**2*Bz((/ar/))*Bt((/ar/))+2*ar*mt**2*kz*gamma*p((/ar/))))
