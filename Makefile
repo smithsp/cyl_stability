@@ -37,7 +37,7 @@ ${VCYLMAT}.o: ${SRCDIR}/${VCYLMAT}.f95
 ${TESTFE}.o: ${SRCDIR}/${TESTFE}.f95
 	${FC} $? ${FCOPTS} -c
 vcyl.o: ${SRCDIR}/vcyl.f95
-	${FC} $? ${FCOPTS} -c
+	${FC} $? ${FCOPTS} -c ${NAG_LIBDIR} ${NAG_LIBS}
 cyl.o:  ${SRCDIR}/cyl.f95
 	${FC} $? ${FCOPTS} -c
 test_nag.o: ${SRCDIR}/test_nag.f95
