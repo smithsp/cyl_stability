@@ -5,7 +5,7 @@ PROGRAM test_finite_elements
   USE cyl_matrix_module
   USE sort_module
   IMPLICIT NONE
-  INTEGER, PARAMETER :: N=21
+  INTEGER, PARAMETER :: N=40
   TYPE(linear), DIMENSION(N) :: phi
   TYPE(constant), DIMENSION(N-1) :: psi, chi
   TYPE(bspline), DIMENSION(0:N+1) :: xi, xi_deriv
@@ -21,7 +21,7 @@ PROGRAM test_finite_elements
     END FUNCTION f
   END INTERFACE
   nx = size(x)
-  ar = .9
+  ar = 1.0
   kz = 1.2
   gamma = 5./3.
   mt = -1
@@ -36,7 +36,7 @@ PROGRAM test_finite_elements
   grid = (/ (i*ar/real(N-1), i=0,N-1) /)
   alpha = 2.4
   rs = .77
-  kB = .true.
+  !kB = .true.
   CALL calc_rs(grid)
   !grid = new_grid(grid)
   WRITE (*,*) 'rs = ', rs
@@ -74,8 +74,10 @@ PROGRAM test_finite_elements
   WRITE (*,*) constant_val(psi,grid(2:N)-.5)
   WRITE (*,'(a)') 'bspline value at left endpoint = '
   WRITE (*,'(g)') val(xi(2:4),grid(1))
-  WRITE (*,'(a)') 'bspline value at right-1 endpoint = '
-  WRITE (*,'(g)')  val(xi(N-5:N-1),grid(N-2))
+  WRITE (*,'(a)') 'bspline value at right endpoint = '
+  WRITE (*,'(g)')  val(xi(N-5:N+1),grid(N))
+  WRITE (*,'(a)') 'bspline_deriv value at right endpoint = '
+  WRITE (*,'(g)')  val(xi_deriv(N-5:N+1),grid(N))
   
   WRITE (*,*) 'xi(0)%error = ', xi(0)%error, 'xi(0)%xj = ', xi(0)%xj
   WRITE (*,'(a,4g)')   'xi(0)%dx = ',xi(0)%dx,'xi(0)%A = ', xi(0)%A, 'xi(0)%B = ', xi(0)%B,&

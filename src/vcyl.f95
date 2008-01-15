@@ -1,4 +1,3 @@
-Fri Jan  4 15:20:42 EST 2008
 PROGRAM cyl
   USE local
   USE cyl_matrix_module
@@ -827,17 +826,17 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     m = k-3
     DO i=lower(m),upper(m)
       l = 1
-      DO j=i,min(i+3,upper(l))
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
         D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(-val_prime(phi1(j),ar)*(Bt((/ar/))**2+Bz((/ar/))**2+gamma*p((/ar/)))-& 
         & kz/mt*Bz((/ar/))*Bt((/ar/))*val(phi1(j),ar))*val(phi1(i),ar)*ar
       ENDDO
       l = 2
-      DO j=i,min(i+3,upper(l))
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
         D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval((Bz((/ar/))*ar**2/mt*kz*Bt((/ar/))-ar*gamma*p((/ar/))-ar*Bz((/ar/))**2)*&
         & val(phi1(i),ar)*val(phi2(j),ar))
       ENDDO
       l = 3
-      DO j=i,min(i+3,upper(l))
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
         D(6*(i-lower(m))+k,6*(j-lower(l))+l) = -minval(-(mt*Bz((/ar/))*Bt((/ar/))/kz-ar*Bt((/ar/))**2-&
         & ar*gamma*p((/ar/)))*val(phi1(i),ar)*val(phi3(j),ar)+&
         & mt*Bz((/0./))*Bt((/0./))/kz*val(phi1(i),0.0D0)*val(phi3(j),0.0D0))
@@ -845,7 +844,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDDO
     B=B+D
     ! This is the resistive wall BC
-    k=1
+    k=4
     i=N+1
     l=1
     m=k+3
@@ -932,7 +931,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       CLOSE(1)
       OPEN(1,status='replace',file='D.txt')
       WRITE (1,*) 'D='
-      WRITE (1,FMT) transpose(D)
+      WRITE (1,FMT) REAL(transpose(D))
       CLOSE(1)
     ENDIF
     WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
