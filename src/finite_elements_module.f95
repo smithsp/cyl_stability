@@ -201,8 +201,11 @@ CONTAINS
         dx(4) = dx(3)
       ENDIF
       IF(this%extent(2).eq.0) THEN !This is a right end element that is not zero at the boundary
-        dx(3) = dx(1)+dx(2)
-        dx(4) = dx(2)+dx(1)
+        dx(3) = dx(2)
+        dx(4) = dx(2)
+        IF(this%extent(1).eq.1) THEN
+          xj = dx(3)
+        ENDIF
       ENDIF
       IF(minval(dx)<=0) THEN
         this%error = .true.
@@ -289,6 +292,11 @@ CONTAINS
       D(1) = -(xj + dx(3) + dx(4)) ** 2*num4
       D(2) = (xj + dx(3) + dx(4))*num4
       D(3) = -0.1D1 / 0.3D1*num4
+      IF((this%extent(1).eq.1).and.(this%extent(2).eq.0)) THEN
+        B = A
+        A = 0
+        !this%xj = this%xj+dx(3)
+      ENDIF
 
     ELSEIF((this%extent(1).eq.1).and.(this%extent(2).eq.2).and.(Lend0)) THEN
       IF(minval(dx(2:4))<=0) THEN
@@ -546,9 +554,9 @@ CONTAINS
         ELSE
           coeff = this%C
         ENDIF
-      ELSEIF ((x >= xj).and.(x <= xj+dx(3)))           THEN 
+      ELSEIF ((x >= xj).and.(x < xj+dx(3)))           THEN 
         coeff = this%C
-      ELSEIF ((x > xj+dx(3)).and.(x < xj+dx(4)+dx(3))) THEN 
+      ELSEIF ((x >= xj+dx(3)).and.(x < xj+dx(4)+dx(3))) THEN 
         coeff = this%D
       ELSE
         coeff = 0.
@@ -579,9 +587,9 @@ CONTAINS
       ELSE
         coeff = this%C
       ENDIF
-    ELSEIF ((x > xj).and.(x <= xj+dx(3)))           THEN 
+    ELSEIF ((x > xj).and.(x < xj+dx(3)))           THEN 
       coeff = this%C
-    ELSEIF ((x > xj+dx(3)).and.(x < xj+dx(4)+dx(3))) THEN 
+    ELSEIF ((x >= xj+dx(3)).and.(x < xj+dx(4)+dx(3))) THEN 
       coeff = this%D
     ELSE
       coeff = 0.

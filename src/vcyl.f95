@@ -4,7 +4,7 @@ PROGRAM cyl
   USE vcyl_matrix_module
   USE finite_elements_module
   USE sort_module
-  INTEGER :: ref, start, fin, N, num
+  INTEGER :: ref, start, fin, N, num, BCrow
   LOGICAL :: spline, phi2_deriv, phi3_deriv, vcyl
   REAL(r8) :: log_Vz0,  nq
   CHARACTER(LEN=40) :: filename, date, time
@@ -19,7 +19,7 @@ PROGRAM cyl
   LOGICAL :: Lend0, Evecs
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ equilib, N, kz, mt, ar, br, tw, gamma, Lend0, Evecs, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
+  NAMELIST /cyl_params/ equilib, N, BCrow, kz, mt, ar, br, tw, gamma, Lend0, Evecs, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -844,7 +844,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDDO
     B=B+D
     ! This is the resistive wall BC
-    k=4
+    k=BCrow
     i=N+1
     l=1
     m=k+3
@@ -916,7 +916,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDDO
     CALL cpu_time(at2)
     at = at+at2-at1
-    IF(verbose) THEN
+    IF(verbose.and.num.eq.fin) THEN
       OPEN(1,status='replace',file='A.txt')
       WRITE (1,*) 'A='
       WRITE (1,FMT) REAL(transpose(A))
@@ -935,6 +935,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       CLOSE(1)
     ENDIF
     WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
+    C = A
+    D = B
     CALL cpu_time(st1)
     IF (Evecs) THEN
       CALL ZGGEV('N','V',NN,B,NN,A,NN,ALPHA,BETA,VL,LDVL,VR,LDVR,WORK,LWORK,RWORK,INFO)
@@ -953,7 +955,10 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ELSE
       CALL output_evals(REAL(ALPHA/BETA),AIMAG(ALPHA/BETA))
     ENDIF
-    !CALL output_evecs_spline(phi1,phi2,phi3,grid,VR) 
+    CALL output_evecs_spline(phi1,phi2,phi3,grid,REAL(VR))
+    CALL output_evecs_spline(phi1,phi2,phi3,grid,AIMAG(VR),imag=.true.)
+    CALL output_error(D,C,ALPHA,BETA,VR)
+    
     DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHA,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv_rw 
   
@@ -1004,7 +1009,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ELSE 
       WRITE(1,'(a)') 'linconst'
     ENDIF
-    WRITE(1,'(i)') N, NN, mt, equilib, num
+    WRITE(1,'(i)') N, NN, mt, equilib, num, BCrow
     WRITE(1,'(g)') epsilo, assemble_t, solve_t, kz, ar, br, tw, rho0, Bz0, Bt0, s2, eps, P0, P1, lambd, Vz0, epsVz, Vp0, epsVp, rs, alpha
     WRITE(1,'(l)') Lend0, vcyl
     CLOSE(1)
@@ -1027,13 +1032,17 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE(1,'(g)') evalsi1
     CLOSE(1)    
   END SUBROUTINE output_evals
-  SUBROUTINE output_evecs_spline(phi1,phi2,phi3,grid,VR)
+  SUBROUTINE output_evecs_spline(phi1,phi2,phi3,grid,VR,imag)
     TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3
     REAL(r8), DIMENSION(:), INTENT(IN) :: grid
     REAL(r8), DIMENSION(:,:), INTENT(IN) :: VR
+    LOGICAL, INTENT(IN), OPTIONAL :: imag
+    LOGICAL :: imag1
     TYPE(bspline), DIMENSION(size(phi1),3) :: phi
     INTEGER :: N , i, j, k, i_skip
     CHARACTER(LEN=30) FMT
+    imag1 = .false.
+    IF(present(imag)) imag1 = imag
     IF (Evecs) THEN
       i_skip = 3
       IF (vcyl) THEN
@@ -1050,6 +1059,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE(FMT,'(a,i0,a)') '(',N,'(g,a))'
       DO j=1,3
         WRITE(filename,'(2(a,i0))') 'output_vcyl/',num,'.evecs',j
+        IF(imag1) WRITE(filename,'(2(a,i0))') 'output_vcyl/',num,'.evecs_imag',j
         OPEN(1,file=filename,status='replace')
         DO k=1,size(VR(1,:))
           WRITE(1,FMT) ( VR(i,k),',' , i=j,size(VR(:,k)),i_skip )
@@ -1058,6 +1068,22 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO 
     ENDIF
   END SUBROUTINE output_evecs_spline
+  SUBROUTINE output_error(A,B,ALPHA,BETA,VR)
+    COMPLEX, INTENT(IN), DIMENSION(:,:) :: A, B, VR
+    COMPLEX, INTENT(IN), DIMENSION(:) :: ALPHA, BETA
+    WRITE(filename,'((a,i0,a))') 'output_vcyl/',num,'.err'
+    OPEN(1,file=filename,status='replace') 
+    WRITE(1,'(f)') (sum(abs(ALPHA(i)*matmul(A,VR(:,i))-BETA(i)*matmul(B,VR(:,i)))),i=1,size(ALPHA))
+    CLOSE(1)
+    WRITE(filename,'((a,i0,a))') 'output_vcyl/',num,'.BCerr'
+    OPEN(1,file=filename,status='replace') 
+    k = BCrow
+    j = N+1
+    m = k+3
+    j = 6*(j-lower(m))+k
+    WRITE(1,'(f)') (abs(ALPHA(i)*sum(A(j,:)*VR(:,i))-BETA(i)*sum(B(j,:)*VR(:,i))),i=1,size(ALPHA))
+    CLOSE(1)
+  END SUBROUTINE output_error
   SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,grid,VR)
     TYPE(linear), DIMENSION(:), INTENT(IN) :: phi1
     TYPE(constant), DIMENSION(:), INTENT(IN) :: phi2, phi3

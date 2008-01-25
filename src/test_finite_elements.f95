@@ -12,7 +12,7 @@ PROGRAM test_finite_elements
   REAL(r8), DIMENSION(N) :: grid
   REAL(r8) :: temp, dx1, dx2, Bz1, ptemp(1), xj, dx(5), x(100*N)
   INTEGER :: i, nx
-  LOGICAL :: Lend0
+  LOGICAL :: Lend0, Rend0
   INTERFACE
     FUNCTION f(x)
       USE local
@@ -21,7 +21,7 @@ PROGRAM test_finite_elements
     END FUNCTION f
   END INTERFACE
   nx = size(x)
-  ar = 1.0
+  ar = .9
   kz = 1.2
   gamma = 5./3.
   mt = -1
@@ -45,6 +45,7 @@ PROGRAM test_finite_elements
   
   x = (/( i*(maxval(grid)-minval(grid))/real(nx-1) + minval(grid), i=0,nx-1)/)
   Lend0 = .true.
+  Rend0 = .true.
   CALL init(phi(2:N-1),grid(2:N-1),p2=grid(1:N-2),p3=grid(3:N))
   CALL init(phi(1),grid(1),p3=grid(2))
   CALL init(phi(N),grid(N),p2=grid(N-1))
@@ -54,9 +55,10 @@ PROGRAM test_finite_elements
   !CALL init(xi(1),grid(2),p2=grid(1),p3=grid(3),LendZero=.true.)
   !CALL init(xi(2),grid(2),p2=grid(1),p3=grid(3),RendZero=.true.)  
   CALL init(xi(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N))
-  CALL init(xi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2), p3=grid(N),RendZero=.true.)
-  CALL init(xi(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.)
-  CALL init(xi(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
+  CALL init(xi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2), p3=grid(N),RendZero=Rend0)
+  CALL init(xi(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=Rend0)
+  CALL init(xi(N+1),grid(N),p2=grid(N-1),RendZero=Rend0)
+  
   CALL init(xi_deriv(1),grid(1),p3=grid(2), p4=grid(3),deriv=.true.,LendZero=Lend0)
   CALL init(xi_deriv(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=.true.,LendZero=Lend0)
   CALL init(xi_deriv(0),grid(1),p3=grid(2),deriv=.true.,LendZero=.true.)
@@ -66,6 +68,8 @@ PROGRAM test_finite_elements
   CALL init(xi_deriv(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2), p3=grid(N),deriv=.true.,RendZero=.true.)  
   CALL init(xi_deriv(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.,deriv=.true.)
   CALL init(xi_deriv(N+1),grid(N),p2=grid(N-1),RendZero=.true.,deriv=.true.)
+  xi_deriv = xi
+  xi_deriv%deriv = .true.
   WRITE (*,*) val(xi(N-1),grid(N-4:N))
   CALL init(psi(1:N-1),grid(1:N-1),p3=grid(2:N))
   WRITE (*,*) 'grid = ', grid
@@ -135,6 +139,7 @@ PROGRAM test_finite_elements
     
   ENDDO
   CLOSE(1)
+  STOP
   WRITE (*,*) int_func(psi(1),psi(1),f)
   WRITE (*,*) int_func(psi(1),psi(2),f)
   WRITE (*,*) int_func(psi(1),psi(1),W11A)
