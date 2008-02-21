@@ -38,9 +38,9 @@ CONTAINS
     SELECT CASE (equilib)
       CASE(1)
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
-      CASE(2)
+      CASE(2,10)
         rho = rho0 * (1-eps*(r**2/ar**2))
-      CASE(3:4,6:10)
+      CASE(3:4,6:9)
         rho = rho0
       CASE(5)
         rho = P(r)*rho0

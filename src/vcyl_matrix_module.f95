@@ -113,4 +113,118 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: B63
     B63 = gamma*P(r)+(mt**2/(kz**2*r**2)+1)*Bt(r)**2
   END FUNCTION B63
+  FUNCTION BCB1(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB1
+    BCB1 = P_prime(r)+1./2.*(Bt(r)*Bt_prime(r)+Bz(r)*Bz_prime(r)-kz*Bt(r)*Bz(r)/mt)
+  END FUNCTION BCB1
+  FUNCTION BCB1a(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB1a
+    BCB1a = -1./2.*(Bt(r)**2+Bz(r)**2)
+  END FUNCTION BCB1a
+  FUNCTION BCB2(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB2
+    BCB2 = 1./2.*(kz*r*Bz(r)*Bt(r)/mt-Bz(r)**2)
+  END FUNCTION BCB2
+  FUNCTION BCB3(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB3
+    BCB3 = 1./2.*(mt*Bz(r)*Bt(r)/(kz*r)-Bt(r)**2)
+  END FUNCTION BCB3
+  FUNCTION BCB1nw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB1nw
+    BCB1nw = -1./2.*Ka*(Bt(r)*mt+kz*r*Bz(r))**2/(kz*r**2*Kadot)
+  END FUNCTION BCB1nw
+  FUNCTION BCB1cw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB1cw
+    BCB1cw = -1./2.*(Bt(r)*mt+kz*r*Bz(r))**2*(Lbdot*Ka-Kbdot*La)/(kz*r**2*(Kadot*Lbdot-Ladot*Kbdot))
+  END FUNCTION BCB1cw
+  FUNCTION BJCP1(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BJCP1
+    BJCP1 = -P_prime(r)-1./2.*(Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+kz*Bz(r)*Bt(r)/mt)
+  END FUNCTION BJCP1
+  FUNCTION BJCP1a(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BJCP1a
+    BJCP1a = -gamma*P(r)+BCB1a(r)
+  END FUNCTION BJCP1a
+  FUNCTION BJCP2(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BJCP2
+    BJCP2 = -gamma*P(r)+BCB2(r)
+  END FUNCTION BJCP2
+  FUNCTION BJCP3(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BJCP3
+    BJCP3 = -gamma*P(r)+BCB3(r)
+  END FUNCTION BJCP3
+  FUNCTION n0(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: n0
+    n0 = r**2*Ka*(mt**2+kz**2*br**2)*(mt*Bt(r)/r+kz*Bz(r))**2*(Lb*Kbdot-Lbdot*Kb)
+  END FUNCTION n0
+  FUNCTION n1(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: n1
+    n1 = kz*br*tw*Kbdot*(mt*Bt(r)/r+kz*Bz(r))**2*(Kbdot*La-Ka*Lbdot)
+  END FUNCTION n1
+  FUNCTION d0(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: d0
+    d0 = kz*Kadot*(mt**2+kz**2*br**2)*(Lbdot*Kb-Lb*Kbdot)
+  END FUNCTION d0
+  FUNCTION d1(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: d1
+    d1 = kz**2*br*tw*Kbdot*(Kadot*Lbdot-Kbdot*Ladot)
+  END FUNCTION d1
+  FUNCTION BCB1rw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCB1rw
+    BCB1rw = n0(r)/d0(r)/2.0 + BCB1(r)
+  END FUNCTION BCB1rw
+  FUNCTION BCA1rw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCA1rw
+    BCA1rw = d1(r)/d0(r)*BJCP1(r)-n1(r)/d0(r)/2
+  END FUNCTION BCA1rw
+  FUNCTION BCA1arw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCA1arw
+    BCA1arw = BJCP1a(r)*d1(r)/d0(r)
+  END FUNCTION BCA1arw
+  FUNCTION BCA2rw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCA2rw
+    BCA2rw = BJCP2(r)*d1(r)/d0(r)
+  END FUNCTION BCA2rw
+  FUNCTION BCA3rw(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: BCA3rw
+    BCA3rw = BJCP3(r)*d1(r)/d0(r)
+  END FUNCTION BCA3rw
 END MODULE vcyl_matrix_module

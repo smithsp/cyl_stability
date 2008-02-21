@@ -824,96 +824,110 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ! These are the extra terms after integrating by parts.
     k = 4
     m = k-3
-    DO i=lower(m),upper(m)
-      l = 1
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(-val_prime(phi1(j),ar)*(Bt((/ar/))**2+Bz((/ar/))**2+gamma*p((/ar/)))-& 
-        & kz/mt*Bz((/ar/))*Bt((/ar/))*val(phi1(j),ar))*val(phi1(i),ar)*ar
+    ! This is for no wall or a conducting wall (tw<0)
+    IF (br.gt.ar) THEN
+      DO i=lower(m),upper(m)
+        l = 1
+        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(&
+          & ((Bz((/ar/))*Bz_prime((/ar/))/0.2D1-Bt((/ar/))*kz*Bz((/ar/))/mt/0.2D1+&
+          & Bt((/ar/))*Bt_prime((/ar/))/0.2D1+p_prime((/ar/))-Bz((/ar/))**2*kz*Ka/Kadot/0.2D1)*val(phi1(j),(/ar/))+&
+          & (-Bz((/ar/))**2/0.2D1-Bt((/ar/))**2/0.2D1)*val_prime(phi1(j),(/ar/)))*val(phi1(i),(/ar/))*(/ar/)-&
+          & Bt((/ar/))*mt*Bz((/ar/))*Ka/Kadot*val(phi1(j),(/ar/))*val(phi1(i),(/ar/))-&
+          & Bt((/ar/))**2/kz*mt**2*Ka/Kadot*val(phi1(j),(/ar/))*val(phi1(i),(/ar/))/(/ar/)/0.2D1)
+          ! This is for a conducting wall
+          IF (br.lt.1000.0) THEN
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) = D(6*(i-lower(m))+k,6*(j-lower(l))+l) +&
+            & minval(val(phi1(i),ar)*val(phi1(j),ar)*Kbdot*(Bt((/ar/))*mt+kz*Bz((/ar/))*ar)**2*(-La*Kadot+Ka*Ladot)/&
+            & ar/(-Lbdot*Kadot+Ladot*Kbdot)/kz/Kadot/0.2D1)
+          ENDIF
+        ENDDO
+        l = 2
+        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+          & (/ar/)*(Bt((/ar/))*(/ar/)*kz*Bz((/ar/))/mt/0.2D1-Bz((/ar/))**2/0.2D1)*val(phi2(j),(/ar/))*val(phi1(i),(/ar/)))
+        ENDDO
+        l = 3
+        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+          & (/ar/)*(-Bt((/ar/))**2/0.2D1+0.1D1/(/ar/)*Bz((/ar/))/kz*mt*Bt((/ar/))/0.2D1)*val(phi3(j),(/ar/))*val(phi1(i),(/ar/)))
+        ENDDO
       ENDDO
-      l = 2
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval((Bz((/ar/))*ar**2/mt*kz*Bt((/ar/))-ar*gamma*p((/ar/))-ar*Bz((/ar/))**2)*&
-        & val(phi1(i),ar)*val(phi2(j),ar))
-      ENDDO
-      l = 3
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        D(6*(i-lower(m))+k,6*(j-lower(l))+l) = -minval(-(mt*Bz((/ar/))*Bt((/ar/))/kz-ar*Bt((/ar/))**2-&
-        & ar*gamma*p((/ar/)))*val(phi1(i),ar)*val(phi3(j),ar)+&
-        & mt*Bz((/0./))*Bt((/0./))/kz*val(phi1(i),0.0D0)*val(phi3(j),0.0D0))
-      ENDDO
-    ENDDO
+    ENDIF
     B=B+D
     ! This is the resistive wall BC
-    k=BCrow
-    i=N+1
-    l=1
-    m=k+3
-    DO j=max(i-3,lower(l)),min(i+3,upper(l))
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-      & (((-ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))-ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-&
-      & 2*ar**2*br*kz**2*p_prime((/ar/))-ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Ladot+&
-      & (2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar+br*kz*Bt((/ar/))**2*mt**2+br*kz**3*Bz((/ar/))**2*ar**2)*La)*Kbdot**2+&
-      & ((ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))+2*ar**2*br*kz**2*p_prime((/ar/))+&
-      & ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))+ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Kadot+&
-      & (-br*kz**3*Bz((/ar/))**2*ar**2-br*kz*Bt((/ar/))**2*mt**2-2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar)*Ka)*&
-      & Lbdot*Kbdot)*tw*val(phi1(j),ar)+&
-      & ((-ar**2*br*kz**2*Bt((/ar/))**2-ar**2*br*kz**2*Bz((/ar/))**2-2*ar**2*br*kz**2*gamma*p((/ar/)))*Ladot*Kbdot**2+&
-      & (2*ar**2*br*kz**2*gamma*p((/ar/))+ar**2*br*kz**2*Bz((/ar/))**2+ar**2*br*kz**2*Bt((/ar/))**2)*&
-      & Kadot*Lbdot*Kbdot)*tw*val_prime(phi1(j),ar))
-      
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*(minval(&
-      & (-(-2*ar**2*kz*mt**3*p_prime((/ar/))-ar**2*mt**2*Bt((/ar/))*kz**2*Bz((/ar/))-&
-      & ar**2*kz*mt**3*Bt((/ar/))*Bt_prime((/ar/))-ar**2*kz*mt**3*Bz((/ar/))*Bz_prime((/ar/))-&
-      & ar**2*kz**3*br**2*Bt((/ar/))*Bt_prime((/ar/))*mt-ar**2*kz**3*br**2*Bz((/ar/))*Bz_prime((/ar/))*mt-&
-      & ar**2*kz**4*br**2*Bt((/ar/))*Bz((/ar/))-2*ar**2*kz**3*br**2*p_prime((/ar/))*mt)*&
-      & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot-(kz**4*br**2*Bz((/ar/))**2*ar**2*mt+mt**3*kz**2*Bz((/ar/))**2*ar**2+&
-      & kz**2*br**2*Bt((/ar/))**2*mt**3+mt**5*Bt((/ar/))**2+&
-      & 2*mt**4*Bt((/ar/))*kz*Bz((/ar/))*ar+2*kz**3*br**2*Bt((/ar/))*mt**2*Bz((/ar/))*ar)*& 
-      & (Lb*Kbdot-Kb*Lbdot)/mt*Ka)*val(phi1(j),ar)-&
-      & (-ar**2*mt*kz**3*br**2*Bz((/ar/))**2-ar**2*mt**3*kz*Bz((/ar/))**2-&
-      & 2*ar**2*mt*kz**3*br**2*gamma*p((/ar/))-ar**2*mt**3*kz*Bt((/ar/))**2-&
-      & ar**2*mt*kz**3*br**2*Bt((/ar/))**2-2*ar**2*mt**3*kz*gamma*p((/ar/)))*&
-      & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot*val_prime(phi1(j),ar)))
-    ENDDO
-    l=2
-    DO j=max(i-3,lower(l)),min(i+3,upper(l))
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-      & ((-ar**2*br*kz**2*Bz((/ar/))**2+ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/)))*&
-      & Ladot*Kbdot**2+(ar**2*br*kz**2*Bz((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-&
-      & ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/)))*Kadot*Lbdot*Kbdot)*tw*val(phi2(j),ar))
-      
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = -cmplx(0,1,r8)*minval(&
-      & ar**2*kz*val(phi2(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)/mt*&
-      & (-2*kz**2*br**2*gamma*p((/ar/))*mt-kz**2*br**2*Bz((/ar/))**2*mt+ar*kz**3*br**2*Bt((/ar/))*Bz((/ar/))-&
-      & mt**3*Bz((/ar/))**2+ar*mt**2*Bt((/ar/))*kz*Bz((/ar/))-2*mt**3*gamma*p((/ar/))))
-    ENDDO
-    l=3
-    DO j=max(i-3,lower(l)),min(i+3,upper(l))
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-      & ((ar*mt*br*kz*Bz((/ar/))*Bt((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/))-ar**2*br*kz**2*Bt((/ar/))**2)*Ladot*Kbdot**2+&
-      & (ar**2*br*kz**2*Bt((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-ar*mt*br*kz*Bz((/ar/))*Bt((/ar/)))*&
-      & Kadot*Lbdot*Kbdot)*val(phi3(j),ar)*tw)
-      
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*minval(&
-      & ar*val(phi3(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)*&
-      & (2*ar*kz**3*br**2*gamma*p((/ar/))+ar*kz**3*br**2*Bt((/ar/))**2+ar*mt**2*Bt((/ar/))**2*kz-&
-      & mt**3*Bz((/ar/))*Bt((/ar/))-mt*kz**2*br**2*Bz((/ar/))*Bt((/ar/))+2*ar*mt**2*kz*gamma*p((/ar/))))
-    ENDDO
-    l=4
-    DO j=max(i-3,lower(l)),min(i+3,upper(l))
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-    ENDDO
-    l=5
-    DO j=max(i-3,lower(l)),min(i+3,upper(l))
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-    ENDDO
-    l=6
-    DO j=max(i-3,lower(l)),min(i+3,upper(l))
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-    ENDDO
+    IF (BCrow.gt.0) THEN
+      k=BCrow
+      i=N+1
+      l=1
+      m=k+3
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+        & (((-ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))-ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-&
+        & 2*ar**2*br*kz**2*p_prime((/ar/))-ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Ladot+&
+        & (2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar+br*kz*Bt((/ar/))**2*mt**2+br*kz**3*Bz((/ar/))**2*ar**2)*La)*Kbdot**2+&
+        & ((ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))+2*ar**2*br*kz**2*p_prime((/ar/))+&
+        & ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))+ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Kadot+&
+        & (-br*kz**3*Bz((/ar/))**2*ar**2-br*kz*Bt((/ar/))**2*mt**2-2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar)*Ka)*&
+        & Lbdot*Kbdot)*tw*val(phi1(j),ar)+&
+        & ((-ar**2*br*kz**2*Bt((/ar/))**2-ar**2*br*kz**2*Bz((/ar/))**2-2*ar**2*br*kz**2*gamma*p((/ar/)))*Ladot*Kbdot**2+&
+        & (2*ar**2*br*kz**2*gamma*p((/ar/))+ar**2*br*kz**2*Bz((/ar/))**2+ar**2*br*kz**2*Bt((/ar/))**2)*&
+        & Kadot*Lbdot*Kbdot)*tw*val_prime(phi1(j),ar))
+
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*(minval(&
+        & (-(-2*ar**2*kz*mt**3*p_prime((/ar/))-ar**2*mt**2*Bt((/ar/))*kz**2*Bz((/ar/))-&
+        & ar**2*kz*mt**3*Bt((/ar/))*Bt_prime((/ar/))-ar**2*kz*mt**3*Bz((/ar/))*Bz_prime((/ar/))-&
+        & ar**2*kz**3*br**2*Bt((/ar/))*Bt_prime((/ar/))*mt-ar**2*kz**3*br**2*Bz((/ar/))*Bz_prime((/ar/))*mt-&
+        & ar**2*kz**4*br**2*Bt((/ar/))*Bz((/ar/))-2*ar**2*kz**3*br**2*p_prime((/ar/))*mt)*&
+        & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot-(kz**4*br**2*Bz((/ar/))**2*ar**2*mt+mt**3*kz**2*Bz((/ar/))**2*ar**2+&
+        & kz**2*br**2*Bt((/ar/))**2*mt**3+mt**5*Bt((/ar/))**2+&
+        & 2*mt**4*Bt((/ar/))*kz*Bz((/ar/))*ar+2*kz**3*br**2*Bt((/ar/))*mt**2*Bz((/ar/))*ar)*& 
+        & (Lb*Kbdot-Kb*Lbdot)/mt*Ka)*val(phi1(j),ar)-&
+        & (-ar**2*mt*kz**3*br**2*Bz((/ar/))**2-ar**2*mt**3*kz*Bz((/ar/))**2-&
+        & 2*ar**2*mt*kz**3*br**2*gamma*p((/ar/))-ar**2*mt**3*kz*Bt((/ar/))**2-&
+        & ar**2*mt*kz**3*br**2*Bt((/ar/))**2-2*ar**2*mt**3*kz*gamma*p((/ar/)))*&
+        & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot*val_prime(phi1(j),ar)))
+      ENDDO
+      l=2
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+        & ((-ar**2*br*kz**2*Bz((/ar/))**2+ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/)))*&
+        & Ladot*Kbdot**2+(ar**2*br*kz**2*Bz((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-&
+        & ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/)))*Kadot*Lbdot*Kbdot)*tw*val(phi2(j),ar))
+
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = -cmplx(0,1,r8)*minval(&
+        & ar**2*kz*val(phi2(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)/mt*&
+        & (-2*kz**2*br**2*gamma*p((/ar/))*mt-kz**2*br**2*Bz((/ar/))**2*mt+ar*kz**3*br**2*Bt((/ar/))*Bz((/ar/))-&
+        & mt**3*Bz((/ar/))**2+ar*mt**2*Bt((/ar/))*kz*Bz((/ar/))-2*mt**3*gamma*p((/ar/))))
+      ENDDO
+      l=3
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
+        & ((ar*mt*br*kz*Bz((/ar/))*Bt((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/))-ar**2*br*kz**2*Bt((/ar/))**2)*Ladot*Kbdot**2+&
+        & (ar**2*br*kz**2*Bt((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-ar*mt*br*kz*Bz((/ar/))*Bt((/ar/)))*&
+        & Kadot*Lbdot*Kbdot)*val(phi3(j),ar)*tw)
+
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*minval(&
+        & ar*val(phi3(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)*&
+        & (2*ar*kz**3*br**2*gamma*p((/ar/))+ar*kz**3*br**2*Bt((/ar/))**2+ar*mt**2*Bt((/ar/))**2*kz-&
+        & mt**3*Bz((/ar/))*Bt((/ar/))-mt*kz**2*br**2*Bz((/ar/))*Bt((/ar/))+2*ar*mt**2*kz*gamma*p((/ar/))))
+      ENDDO
+      l=4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+      ENDDO
+      l=5
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+      ENDDO
+      l=6
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
+      ENDDO
+    ENDIF
     CALL cpu_time(at2)
     at = at+at2-at1
     IF(verbose.and.num.eq.fin) THEN
@@ -1081,7 +1095,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     j = N+1
     m = k+3
     j = 6*(j-lower(m))+k
-    WRITE(1,'(f)') (abs(ALPHA(i)*sum(A(j,:)*VR(:,i))-BETA(i)*sum(B(j,:)*VR(:,i))),i=1,size(ALPHA))
+    WRITE(1,'(f)')     (abs(ALPHA(i)*sum(A(j,:)*VR(:,i))-BETA(i)*sum(B(j,:)*VR(:,i))),i=1,size(ALPHA))
     CLOSE(1)
   END SUBROUTINE output_error
   SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,grid,VR)

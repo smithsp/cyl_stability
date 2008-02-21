@@ -45,17 +45,21 @@ CONTAINS
     Ka = REAL(res(1))
     CALL s18dcf(real(abs(mt)+1,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
     Kadot = -REAL(res(1))+abs(mt)/kz/ar*Ka
-    CALL s18dcf(real(abs(mt)  ,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
-    Kb = REAL(res(1))
-    CALL s18dcf(real(abs(mt)+1,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
-    Kbdot = -REAL(res(1))+abs(mt)/kz/br*Kb
     CALL s18def(real(abs(mt)  ,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
     La = REAL(res(1))
     CALL s18def(real(abs(mt)+1,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
     Ladot = REAL(res(1))+abs(mt)/kz/ar*La
-    CALL s18def(real(abs(mt)  ,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
-    Lb = REAL(res(1))
-    CALL s18def(real(abs(mt)+1,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
-    Lbdot = REAL(res(1))+abs(mt)/kz/br*Lb
+    IF (br.le.1000.0) THEN
+      CALL s18dcf(real(abs(mt)  ,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+      Kb = REAL(res(1))
+      CALL s18dcf(real(abs(mt)+1,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+      Kbdot = -REAL(res(1))+abs(mt)/kz/br*Kb
+      CALL s18def(real(abs(mt)  ,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+      Lb = REAL(res(1))
+      CALL s18def(real(abs(mt)+1,r8),cmplx(kz*br,0,r8),1,'U',res,nz,ifail)
+      Lbdot = REAL(res(1))+abs(mt)/kz/br*Lb
+    ELSE
+      Kb = 0; Kbdot = 0; Lb = 0; Lbdot = 0;
+    ENDIF
   END SUBROUTINE init_bc
 END MODULE vcyl_funcs_module
