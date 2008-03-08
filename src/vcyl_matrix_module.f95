@@ -113,65 +113,48 @@ CONTAINS
     REAL(r8), DIMENSION(size(r)) :: B63
     B63 = gamma*P(r)+(mt**2/(kz**2*r**2)+1)*Bt(r)**2
   END FUNCTION B63
+  ! These are the surface (boundary) terms
   FUNCTION BCB1(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BCB1
-    BCB1 = P_prime(r)+1./2.*(Bt(r)*Bt_prime(r)+Bz(r)*Bz_prime(r)-kz*Bt(r)*Bz(r)/mt)
+    BCB1 = -Bt(r)**2+r**2*rho(r)*Vp(r)**2
   END FUNCTION BCB1
-  FUNCTION BCB1a(r)
-    IMPLICIT NONE
-    REAL(r8), INTENT(IN), DIMENSION(:) :: r
-    REAL(r8), DIMENSION(size(r)) :: BCB1a
-    BCB1a = -1./2.*(Bt(r)**2+Bz(r)**2)
-  END FUNCTION BCB1a
-  FUNCTION BCB2(r)
-    IMPLICIT NONE
-    REAL(r8), INTENT(IN), DIMENSION(:) :: r
-    REAL(r8), DIMENSION(size(r)) :: BCB2
-    BCB2 = 1./2.*(kz*r*Bz(r)*Bt(r)/mt-Bz(r)**2)
-  END FUNCTION BCB2
-  FUNCTION BCB3(r)
-    IMPLICIT NONE
-    REAL(r8), INTENT(IN), DIMENSION(:) :: r
-    REAL(r8), DIMENSION(size(r)) :: BCB3
-    BCB3 = 1./2.*(mt*Bz(r)*Bt(r)/(kz*r)-Bt(r)**2)
-  END FUNCTION BCB3
   FUNCTION BCB1nw(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BCB1nw
-    BCB1nw = -1./2.*Ka*(Bt(r)*mt+kz*r*Bz(r))**2/(kz*r**2*Kadot)
+    BCB1nw = -Ka*(Bt(r)*mt+kz*r*Bz(r))**2/(kz*r*Kadot)
   END FUNCTION BCB1nw
   FUNCTION BCB1cw(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BCB1cw
-    BCB1cw = -1./2.*(Bt(r)*mt+kz*r*Bz(r))**2*(Lbdot*Ka-Kbdot*La)/(kz*r**2*(Kadot*Lbdot-Ladot*Kbdot))
+    BCB1cw = -(Bt(r)*mt+kz*r*Bz(r))**2*(Lbdot*Ka-Kbdot*La)/(kz*r*(Kadot*Lbdot-Ladot*Kbdot))
   END FUNCTION BCB1cw
   FUNCTION BJCP1(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BJCP1
-    BJCP1 = -P_prime(r)-1./2.*(Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+kz*Bz(r)*Bt(r)/mt)
+    BJCP1 = -kz*Bz(r)*Bt(r)/mt+Bt(r)**2/r-rho(r)*Vp(r)**2*r
   END FUNCTION BJCP1
   FUNCTION BJCP1a(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BJCP1a
-    BJCP1a = -gamma*P(r)+BCB1a(r)
+    BJCP1a = -gamma*P(r)-Bt(r)**2-Bz(r)**2
   END FUNCTION BJCP1a
   FUNCTION BJCP2(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BJCP2
-    BJCP2 = -gamma*P(r)+BCB2(r)
+    BJCP2 = -gamma*P(r)+kz*r*Bz(r)*Bt(r)/mt-Bz(r)**2
   END FUNCTION BJCP2
   FUNCTION BJCP3(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BJCP3
-    BJCP3 = -gamma*P(r)+BCB3(r)
+    BJCP3 = -gamma*P(r)-Bt(r)**2+mt*Bz(r)*Bt(r)/(kz*r)
   END FUNCTION BJCP3
   FUNCTION n0(r)
     IMPLICIT NONE
@@ -201,13 +184,13 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BCB1rw
-    BCB1rw = n0(r)/d0(r)/2.0 + BCB1(r)
+    BCB1rw = n0(r)/d0(r)
   END FUNCTION BCB1rw
   FUNCTION BCA1rw(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: BCA1rw
-    BCA1rw = d1(r)/d0(r)*BJCP1(r)-n1(r)/d0(r)/2
+    BCA1rw = d1(r)/d0(r)*BJCP1(r)-n1(r)/d0(r)
   END FUNCTION BCA1rw
   FUNCTION BCA1arw(r)
     IMPLICIT NONE

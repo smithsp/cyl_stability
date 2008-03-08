@@ -42,15 +42,13 @@ PROGRAM cyl
     WRITE(1,nml=cyl_params)
     CLOSE(1)
     WRITE(*,nml=cyl_params)
-    IF (spline) THEN      
-      IF (br.gt.ar) THEN
+    IF (spline) THEN
+      IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0).and.(br.le.ar)) THEN
+        CALL bspline_deriv_sa
+      ELSEIF (tw.gt.0) THEN
         CALL bspline_deriv_rw
       ELSE
-        IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
-          CALL bspline_deriv_sa
-        ELSE
-          CALL bspline_deriv
-        ENDIF
+        CALL bspline_deriv
       ENDIF
     ELSE 
       CALL linear_const_sa
@@ -67,15 +65,13 @@ PROGRAM cyl
     WRITE(1,nml=cyl_params)
     CLOSE(1)
     WRITE(*,nml=cyl_params)
-    IF (spline) THEN      
-      IF (br.gt.ar) THEN
+    IF (spline) THEN
+      IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0).and.(br.le.ar)) THEN
+        CALL bspline_deriv_sa
+      ELSEIF (tw.gt.0) THEN
         CALL bspline_deriv_rw
       ELSE
-        IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0)) THEN
-          CALL bspline_deriv_sa
-        ELSE
-          CALL bspline_deriv
-        ENDIF
+        CALL bspline_deriv
       ENDIF
     ELSE 
       CALL linear_const_sa
@@ -390,30 +386,46 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
   SUBROUTINE bspline_deriv()
     IMPLICIT NONE
     TYPE(bspline), DIMENSION(:), ALLOCATABLE :: phi1, phi2, phi3, phi4, phi5, phi6
+    INTEGER :: lower1, upper1
     
     vcyl = .true.
-    ALLOCATE(grid(N))
-    IF (abs(mt).eq.1.and.(.not.Lend0)) THEN
-      ALLOCATE(phi1(0:N),phi2(0:N),phi3(0:N),phi4(0:N),phi5(0:N),phi6(0:N))
-    ELSE
-      ALLOCATE(phi1(1:N),phi2(1:N),phi3(1:N),phi4(1:N),phi5(1:N),phi6(1:N))
+    WRITE (*,*) '************Using bspline_deriv**************'
+  ! The wall is not at the plasma surface  
+    IF (br.gt.ar) THEN
+      CALL init_bc
+      upper1 = N+1
     ENDIF
+    WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
+    WRITE (*,'(a,g)') 'BCB1nw=',BCB1nw((/ar/)),'BCB1cw=',BCB1cw((/ar/))
+    IF (abs(mt).eq.1.and.(.not.Lend0)) THEN
+      lower1=0
+    ELSE
+      lower1=1
+    ENDIF
+
+  ! Allocate the grid, finite elements, vectors, and matrices
+    ALLOCATE(grid(N))    
+    ALLOCATE(phi1(lower1:upper1),phi2(lower1:upper1),phi3(lower1:upper1),phi4(lower1:upper1),phi5(lower1:upper1),phi6(lower1:upper1))
+    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
+    NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
+    LWORK=10*NN
     NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHAI(NN),ALPHAR(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
-
+    LDVR = NN
+    
     grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
   !Initialize the finite elements
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
     upper = (/ubound(phi1,1), ubound(phi2,1), ubound(phi3,1), ubound(phi4,1), ubound(phi5,1), ubound(phi6,1), ubound(phi1,1), ubound(phi2,1), ubound(phi3,1)/) 
     
-    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
     IF(lower(1).eq.0)   CALL init(phi1(0),grid(1),p3=grid(2),LendZero=.true.)
     IF(lower(1).le.1)   CALL init(phi1(1),grid(1),p3=grid(2),p4=grid(3),LendZero=.true.)
     IF(lower(1).le.2)   CALL init(phi1(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),LendZero=.true.)
     CALL init(phi1(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N))
     CALL init(phi1(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2),p3=grid(N),RendZero=.true.)
     CALL init(phi1(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.)
+    IF(upper(1).eq.N+1) CALL init(phi1(N+1),grid(N),p2=grid(N-1),RendZero=.true.)
     phi2 = phi1
     phi3 = phi1
     phi4 = phi1
@@ -425,13 +437,10 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     phi6%deriv = phi3_deriv
     
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    LWORK=10*NN
-    LDVR = NN
     WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
     WRITE(FMTR,'(a,I,a)') '(',nphi1,'G20.11)'
 
-    A = 0.
-    B = 0.
+    A = 0.;    B = 0.;    C = 0.;    D = 0.
     k = 1
     m = k+3
     CALL cpu_time(at1)
@@ -504,9 +513,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         tempA = int_func(phi1(i),phi1(j),B41a,deriv1=.true.,deriv2=.true.)
         tempB = int_func(phi1(i),phi1(j),B41b,deriv2=.true.)+int_func(phi1(i),phi1(j),B41b,deriv1=.true.)
         tempC = int_func(phi1(i),phi1(j),B41c)
-        temp = minval(tempA+tempB+tempC-&
-        & 1./2.*( 2*Bz((/ar/))*Bt((/ar/))*kz/mt*val(phi1(i),ar)*val(phi1(j),ar) + &
-        &         Bmag((/ar/))**2*(val(phi1(i),ar)*val_prime(phi1(j),ar)+val(phi1(j),ar)*val_prime(phi1(i),ar))))
+        temp = tempA+tempB+tempC
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = temp
         IF((i.ne.j).and.(temp.ne.0)) B(6*(j-lower(m))+k,6*(i-lower(l))+l) = temp
       ENDDO
@@ -514,15 +521,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         tempB = int_func(phi1(i),phi2(j),B42b,deriv1=.true.)
         tempC = int_func(phi1(i),phi2(j),B42c)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = &
-        & minval(tempB+tempC-1./2.*val(phi1(i),ar)*val(phi2(j),ar)*(Bz((/ar/))**2-ar*Bz((/ar/))*Bt((/ar/))*kz/mt))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC
       ENDDO
       l = 3
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         tempB = int_func(phi1(i),phi3(j),B43b,deriv1=.true.)
         tempC = int_func(phi1(i),phi3(j),B43c)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB + tempC - &
-        & minval(1./2.*val(phi1(i),ar)*val(phi3(j),ar)*(Bt((/ar/))**2-Bz((/ar/))*Bt((/ar/))*mt/(kz*ar)))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC 
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -586,6 +591,23 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
       ENDDO
     ENDDO
+    ! This is for a wall not at the surface
+    IF (br.gt.ar) THEN
+      ! These are the extra terms after integrating by parts, replaced by boundary conditions
+      k = 4
+      m = k-3
+      DO i=lower(m),upper(m)
+        l = 1
+        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+          IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval((BCB1((/ar/))+BCB1nw((/ar/))))*val(phi1(j),ar)
+          ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval((BCB1((/ar/))+BCB1cw((/ar/))))*val(phi1(j),ar)
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDIF
+    B=B+D !Sign?
     CALL cpu_time(at2)
     at = at+at2-at1
     IF(verbose) THEN
@@ -596,6 +618,10 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       OPEN(1,status='replace',file='B.txt')
       WRITE (1,*) 'B='
       WRITE (1,FMT) transpose(B)
+      CLOSE(1)
+      OPEN(1,status='replace',file='D.txt')
+      WRITE (1,*) 'D='
+      WRITE (1,FMT) transpose(D)
       CLOSE(1)
     ENDIF
     C=A(:,:)
@@ -611,6 +637,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL output_params(at2-at1,st2-st1)
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs_spline(phi1,phi2,phi3,grid,VR) 
+    CALL output_error_real(ALPHAR,ALPHAI,BETA,VR,phi1,phi2,phi3)
     DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv
   SUBROUTINE bspline_deriv_rw()
@@ -619,6 +646,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     COMPLEX(r8), DIMENSION(:,:), ALLOCATABLE :: A, B, C, D, VR, VL
     TYPE(bspline), DIMENSION(:), ALLOCATABLE :: phi1, phi2, phi3, phi4, phi5, phi6
     INTEGER :: lower1, upper1
+    WRITE (*,*) '************Using bspline_deriv_rw**************'
     vcyl = .true.
   ! Decide if there should be an element that allows phi1(r=0).ne.0
     IF (abs(mt).eq.1.and.(.not.Lend0)) THEN
@@ -631,9 +659,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     upper1 = N+1
     
   ! Allocate the grid, finite elements, vectors, and matrices
-    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
     ALLOCATE(grid(N))    
     ALLOCATE(phi1(lower1:upper1),phi2(lower1:upper1),phi3(lower1:upper1),phi4(lower1:upper1),phi5(lower1:upper1),phi6(lower1:upper1))
+    nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
     NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
     LWORK=10*NN
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(LWORK))
@@ -669,8 +697,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE(FMTR,'(a,I,a)') '(',nphi1,'G20.11)'
     
   ! Initialize the matrices needed for the eigenvalue/eigenvector solver
-    A = 0.
-    B = 0.
+    A = 0.;    B = 0.;    C = 0.;    D = 0.
     k = 1
     m = k+3
     CALL cpu_time(at1)
@@ -821,119 +848,52 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
       ENDDO
     ENDDO
-    ! These are the extra terms after integrating by parts.
-    k = 4
-    m = k-3
-    ! This is for no wall or a conducting wall (tw<0)
+    ! This is for a wall not at the surface
     IF (br.gt.ar) THEN
+      ! These are the extra terms after integrating by parts, replaced by boundary conditions
+      k = 4
+      m = k-3
       DO i=lower(m),upper(m)
         l = 1
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
-          D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(&
-          & ((Bz((/ar/))*Bz_prime((/ar/))/0.2D1-Bt((/ar/))*kz*Bz((/ar/))/mt/0.2D1+&
-          & Bt((/ar/))*Bt_prime((/ar/))/0.2D1+p_prime((/ar/))-Bz((/ar/))**2*kz*Ka/Kadot/0.2D1)*val(phi1(j),(/ar/))+&
-          & (-Bz((/ar/))**2/0.2D1-Bt((/ar/))**2/0.2D1)*val_prime(phi1(j),(/ar/)))*val(phi1(i),(/ar/))*(/ar/)-&
-          & Bt((/ar/))*mt*Bz((/ar/))*Ka/Kadot*val(phi1(j),(/ar/))*val(phi1(i),(/ar/))-&
-          & Bt((/ar/))**2/kz*mt**2*Ka/Kadot*val(phi1(j),(/ar/))*val(phi1(i),(/ar/))/(/ar/)/0.2D1)
-          ! This is for a conducting wall
-          IF (br.lt.1000.0) THEN
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) = D(6*(i-lower(m))+k,6*(j-lower(l))+l) +&
-            & minval(val(phi1(i),ar)*val(phi1(j),ar)*Kbdot*(Bt((/ar/))*mt+kz*Bz((/ar/))*ar)**2*(-La*Kadot+Ka*Ladot)/&
-            & ar/(-Lbdot*Kadot+Ladot*Kbdot)/kz/Kadot/0.2D1)
+          IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi1(j),ar)
+          ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval(BCB1((/ar/))+BCB1cw((/ar/)))*val(phi1(j),ar)
+          ELSE ! This is for a resistive wall
+            C(6*(i-lower(m))+k,6*(j-lower(l))+l) =  -CMPLX(0,1,r8)*ar*val(phi1(i),ar)*&
+            & minval(BCA1rw((/ar/))*val(phi1(j),ar)+BCA1arw((/ar/))*val_prime(phi1(j),ar))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval(BCB1((/ar/))+BCB1rw((/ar/)))*val(phi1(j),ar)
           ENDIF
         ENDDO
         l = 2
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
-          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-          & (/ar/)*(Bt((/ar/))*(/ar/)*kz*Bz((/ar/))/mt/0.2D1-Bz((/ar/))**2/0.2D1)*val(phi2(j),(/ar/))*val(phi1(i),(/ar/)))
+          IF ((br.le.1000.0).and.(tw.gt.0)) THEN ! This is for a resistive wall
+            C(6*(i-lower(m))+k,6*(j-lower(l))+l) =  -CMPLX(0,1,r8)*ar*val(phi1(i),ar)*&
+            & minval(BCA2rw((/ar/))*val(phi2(j),ar))
+          ENDIF
         ENDDO
         l = 3
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
-          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-          & (/ar/)*(-Bt((/ar/))**2/0.2D1+0.1D1/(/ar/)*Bz((/ar/))/kz*mt*Bt((/ar/))/0.2D1)*val(phi3(j),(/ar/))*val(phi1(i),(/ar/)))
+          IF ((br.le.1000.0).and.(tw.gt.0)) THEN ! This is for a resistive wall
+            C(6*(i-lower(m))+k,6*(j-lower(l))+l) =  -CMPLX(0,1,r8)*ar*val(phi1(i),ar)*&
+            & minval(BCA2rw((/ar/))*val(phi2(j),ar))
+          ENDIF
         ENDDO
       ENDDO
     ENDIF
     B=B+D
-    ! This is the resistive wall BC
-    IF (BCrow.gt.0) THEN
-      k=BCrow
-      i=N+1
-      l=1
-      m=k+3
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-        & (((-ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))-ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-&
-        & 2*ar**2*br*kz**2*p_prime((/ar/))-ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Ladot+&
-        & (2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar+br*kz*Bt((/ar/))**2*mt**2+br*kz**3*Bz((/ar/))**2*ar**2)*La)*Kbdot**2+&
-        & ((ar**2/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))+2*ar**2*br*kz**2*p_prime((/ar/))+&
-        & ar**2*br*kz**2*Bt((/ar/))*Bt_prime((/ar/))+ar**2*br*kz**2*Bz((/ar/))*Bz_prime((/ar/)))*Kadot+&
-        & (-br*kz**3*Bz((/ar/))**2*ar**2-br*kz*Bt((/ar/))**2*mt**2-2*br*kz**2*Bt((/ar/))*mt*Bz((/ar/))*ar)*Ka)*&
-        & Lbdot*Kbdot)*tw*val(phi1(j),ar)+&
-        & ((-ar**2*br*kz**2*Bt((/ar/))**2-ar**2*br*kz**2*Bz((/ar/))**2-2*ar**2*br*kz**2*gamma*p((/ar/)))*Ladot*Kbdot**2+&
-        & (2*ar**2*br*kz**2*gamma*p((/ar/))+ar**2*br*kz**2*Bz((/ar/))**2+ar**2*br*kz**2*Bt((/ar/))**2)*&
-        & Kadot*Lbdot*Kbdot)*tw*val_prime(phi1(j),ar))
-
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*(minval(&
-        & (-(-2*ar**2*kz*mt**3*p_prime((/ar/))-ar**2*mt**2*Bt((/ar/))*kz**2*Bz((/ar/))-&
-        & ar**2*kz*mt**3*Bt((/ar/))*Bt_prime((/ar/))-ar**2*kz*mt**3*Bz((/ar/))*Bz_prime((/ar/))-&
-        & ar**2*kz**3*br**2*Bt((/ar/))*Bt_prime((/ar/))*mt-ar**2*kz**3*br**2*Bz((/ar/))*Bz_prime((/ar/))*mt-&
-        & ar**2*kz**4*br**2*Bt((/ar/))*Bz((/ar/))-2*ar**2*kz**3*br**2*p_prime((/ar/))*mt)*&
-        & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot-(kz**4*br**2*Bz((/ar/))**2*ar**2*mt+mt**3*kz**2*Bz((/ar/))**2*ar**2+&
-        & kz**2*br**2*Bt((/ar/))**2*mt**3+mt**5*Bt((/ar/))**2+&
-        & 2*mt**4*Bt((/ar/))*kz*Bz((/ar/))*ar+2*kz**3*br**2*Bt((/ar/))*mt**2*Bz((/ar/))*ar)*& 
-        & (Lb*Kbdot-Kb*Lbdot)/mt*Ka)*val(phi1(j),ar)-&
-        & (-ar**2*mt*kz**3*br**2*Bz((/ar/))**2-ar**2*mt**3*kz*Bz((/ar/))**2-&
-        & 2*ar**2*mt*kz**3*br**2*gamma*p((/ar/))-ar**2*mt**3*kz*Bt((/ar/))**2-&
-        & ar**2*mt*kz**3*br**2*Bt((/ar/))**2-2*ar**2*mt**3*kz*gamma*p((/ar/)))*&
-        & (Lb*Kbdot-Kb*Lbdot)/mt*Kadot*val_prime(phi1(j),ar)))
-      ENDDO
-      l=2
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-        & ((-ar**2*br*kz**2*Bz((/ar/))**2+ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/)))*&
-        & Ladot*Kbdot**2+(ar**2*br*kz**2*Bz((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-&
-        & ar**3/mt*br*kz**3*Bt((/ar/))*Bz((/ar/)))*Kadot*Lbdot*Kbdot)*tw*val(phi2(j),ar))
-
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = -cmplx(0,1,r8)*minval(&
-        & ar**2*kz*val(phi2(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)/mt*&
-        & (-2*kz**2*br**2*gamma*p((/ar/))*mt-kz**2*br**2*Bz((/ar/))**2*mt+ar*kz**3*br**2*Bt((/ar/))*Bz((/ar/))-&
-        & mt**3*Bz((/ar/))**2+ar*mt**2*Bt((/ar/))*kz*Bz((/ar/))-2*mt**3*gamma*p((/ar/))))
-      ENDDO
-      l=3
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = minval(&
-        & ((ar*mt*br*kz*Bz((/ar/))*Bt((/ar/))-2*ar**2*br*kz**2*gamma*p((/ar/))-ar**2*br*kz**2*Bt((/ar/))**2)*Ladot*Kbdot**2+&
-        & (ar**2*br*kz**2*Bt((/ar/))**2+2*ar**2*br*kz**2*gamma*p((/ar/))-ar*mt*br*kz*Bz((/ar/))*Bt((/ar/)))*&
-        & Kadot*Lbdot*Kbdot)*val(phi3(j),ar)*tw)
-
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = cmplx(0,1,r8)*minval(&
-        & ar*val(phi3(j),ar)*Kadot*(Lb*Kbdot-Kb*Lbdot)*&
-        & (2*ar*kz**3*br**2*gamma*p((/ar/))+ar*kz**3*br**2*Bt((/ar/))**2+ar*mt**2*Bt((/ar/))**2*kz-&
-        & mt**3*Bz((/ar/))*Bt((/ar/))-mt*kz**2*br**2*Bz((/ar/))*Bt((/ar/))+2*ar*mt**2*kz*gamma*p((/ar/))))
-      ENDDO
-      l=4
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-      ENDDO
-      l=5
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-      ENDDO
-      l=6
-      DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 0.
-      ENDDO
-    ENDIF
+    A=A+C
     CALL cpu_time(at2)
     at = at+at2-at1
     IF(verbose.and.num.eq.fin) THEN
       OPEN(1,status='replace',file='A.txt')
       WRITE (1,*) 'A='
       WRITE (1,FMT) REAL(transpose(A))
+      CLOSE(1)
+      OPEN(1,status='replace',file='AI.txt')
+      WRITE (1,*) 'AI='
+      WRITE (1,FMT) AIMAG(transpose(A))
       CLOSE(1)
       OPEN(1,status='replace',file='B.txt')
       WRITE (1,*) 'B='
@@ -971,8 +931,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDIF
     CALL output_evecs_spline(phi1,phi2,phi3,grid,REAL(VR))
     CALL output_evecs_spline(phi1,phi2,phi3,grid,AIMAG(VR),imag=.true.)
-    CALL output_error(D,C,ALPHA,BETA,VR)
-    
+    CALL output_error(ALPHA,BETA,VR,phi1,phi2,phi3)
     DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHA,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv_rw 
   
@@ -1082,21 +1041,77 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO 
     ENDIF
   END SUBROUTINE output_evecs_spline
-  SUBROUTINE output_error(A,B,ALPHA,BETA,VR)
-    COMPLEX, INTENT(IN), DIMENSION(:,:) :: A, B, VR
-    COMPLEX, INTENT(IN), DIMENSION(:) :: ALPHA, BETA
-    WRITE(filename,'((a,i0,a))') 'output_vcyl/',num,'.err'
-    OPEN(1,file=filename,status='replace') 
-    WRITE(1,'(f)') (sum(abs(ALPHA(i)*matmul(A,VR(:,i))-BETA(i)*matmul(B,VR(:,i)))),i=1,size(ALPHA))
-    CLOSE(1)
+  SUBROUTINE output_error_real(ALPHAR,ALPHAI,BETA,VR,phi1,phi2,phi3)
+    REAL(r8), INTENT(IN), DIMENSION(:,:) :: VR
+    REAL(r8), INTENT(IN), DIMENSION(:) :: ALPHAR, ALPHAI, BETA
+    TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3
+    COMPLEX(r8), DIMENSION(size(ALPHAR)) :: tempR, tempL, temp1, temp2, temp3
     WRITE(filename,'((a,i0,a))') 'output_vcyl/',num,'.BCerr'
     OPEN(1,file=filename,status='replace') 
-    k = BCrow
-    j = N+1
-    m = k+3
-    j = 6*(j-lower(m))+k
-    WRITE(1,'(f)')     (abs(ALPHA(i)*sum(A(j,:)*VR(:,i))-BETA(i)*sum(B(j,:)*VR(:,i))),i=1,size(ALPHA))
+    DO i=1,size(ALPHAR)
+      temp1(i) = minval(BJCP1((/ar/)))*sum(VR(1::6,i)*val(phi1,ar)) + minval(BJCP1a((/ar/)))*sum(VR(1::6,i)*val_prime(phi1,ar)) 
+      temp2(i) = minval(BJCP2((/ar/)))*sum(VR(2::6,i)*val(phi2,ar))
+      temp3(i) = minval(BJCP3((/ar/)))*sum(VR(3::6,i)*val(phi3,ar))
+      tempL(i) = temp1(i)+temp2(i)+temp3(i)
+      IF (br.gt.1000.0.or.tw.eq.0) THEN !No Wall
+        WRITE (*,*) 'There is no wall'
+        tempR(i) = sum(val(phi1,ar)*VR(1::6,i))*minval(BCB1nw((/ar/)))
+      ELSEIF (tw.lt.0) THEN !Conducting Wall
+        WRITE (*,*) 'There is a conducting wall'
+        tempR(i) = sum(val(phi1,ar)*VR(1::6,i))*minval(BCB1cw((/ar/)))
+      ENDIF
+      IF (ALPHAI(i).gt.0) THEN
+        temp1(i) = temp1(i)+cmplx(0,1,r8)*(minval(BJCP1((/ar/)))*sum(VR(1::6,i+1)*val(phi1,ar)) + minval(BJCP1a((/ar/)))*sum(VR(1::6,i+1)*val_prime(phi1,ar)))
+        temp2(i) = temp2(i)+cmplx(0,1,r8)*minval(BJCP2((/ar/)))*sum(VR(2::6,i+1)*val(phi2,ar))
+        temp3(i) = temp3(i)+cmplx(0,1,r8)*minval(BJCP3((/ar/)))*sum(VR(3::6,i+1)*val(phi3,ar))
+        tempL(i) = temp1(i)+temp2(i)+temp3(i)
+        IF (br.gt.1000.0.or.tw.eq.0) THEN !No Wall
+          tempR(i) = tempR(i)+cmplx(0,1,r8)*minval(BCB1nw((/ar/)))*sum(VR(1::6,i+1)*val(phi1,ar))
+        ELSEIF (tw.lt.0) THEN !Conducting Wall
+          tempR(i) = tempR(i)+cmplx(0,1,r8)*minval(BCB1cw((/ar/)))*sum(VR(1::6,i+1)*val(phi1,ar))
+        ENDIF
+      ELSEIF (ALPHAI(i).lt.0) THEN
+        temp1(i) = conjg(temp1(i-1))
+        temp2(i) = conjg(temp2(i-1))
+        temp3(i) = conjg(temp3(i-1))
+        tempL(i) = temp1(i)+temp2(i)+temp3(i)
+        tempR(i) = conjg(tempR(i-1))
+       ENDIF
+    ENDDO
+    WRITE(1,'(f)') abs(tempL-tempR)
     CLOSE(1)
+    IF(VERBOSE) THEN
+      WRITE(*,'(4A40)') 'temp1', 'temp2', 'temp3', 'tempR'
+      WRITE(*,'(8G20.10)') ((/temp1(i),temp2(i),temp3(i),tempR(i)/),i=1,size(ALPHAI))
+    ENDIF
+  END SUBROUTINE output_error_real
+  SUBROUTINE output_error(ALPHA,BETA,VR,phi1,phi2,phi3)
+    COMPLEX(r8), INTENT(IN), DIMENSION(:,:) :: VR
+    COMPLEX(r8), INTENT(IN), DIMENSION(:) :: ALPHA, BETA
+    TYPE(bspline), DIMENSION(:), INTENT(IN) :: phi1, phi2, phi3
+    COMPLEX(r8), DIMENSION(size(ALPHA)) :: tempR, tempL, temp2, temp3, temp1
+    WRITE(filename,'((a,i0,a))') 'output_vcyl/',num,'.BCerr'
+    OPEN(1,file=filename,status='replace') 
+    temp1 = (/ (minval(BJCP1((/ar/)))*sum(VR(1::6,i)*val(phi1,ar)) + minval(BJCP1a((/ar/)))*sum(VR(1::6,i)*val_prime(phi1,ar)) , i=1,size(ALPHA) ) /)
+    temp2 = (/ (minval(BJCP2((/ar/)))*sum(VR(2::6,i)*val(phi2,ar)), i=1,size(ALPHA))/)
+    temp3 = (/ (minval(BJCP3((/ar/)))*sum(VR(3::6,i)*val(phi3,ar)), i=1,size(ALPHA))/)
+    tempL = (/ ((minval(BJCP1((/ar/)))*sum(VR(1::6,i)*val(phi1,ar)) + minval(BJCP1a((/ar/)))*sum(VR(1::6,i)*val_prime(phi1,ar)) &
+    & +minval(BJCP2((/ar/)))*sum(VR(2::6,i)*val(phi2,ar)) + minval(BJCP3((/ar/)))*sum(VR(3::6,i)*val(phi3,ar))), i=1,size(ALPHA) ) /)
+    IF (br.gt.1000.0.or.tw.eq.0) THEN !No Wall
+      tempR = (/ (sum(val(phi1,ar)*VR(1::6,i))*minval(BCB1nw((/ar/))),i=1,size(ALPHA) ) /)
+    ELSEIF (tw.lt.0) THEN !Conducting Wall
+      tempR = (/ (sum(val(phi1,ar)*VR(1::6,i))*minval(BCB1cw((/ar/))),i=1,size(ALPHA) ) /)
+    ELSE
+      tempR = (/ (sum(val(phi1,ar)*VR(1::6,i))/2.*&
+      & (minval(n0((/ar/)))*CMPLX(0,1,r8) + minval(n1((/ar/)))*ALPHA(i)/BETA(i))/ &
+      & (minval(d0((/ar/)))*CMPLX(0,1,r8) + minval(d1((/ar/)))*ALPHA(i)/BETA(i)),i=1,size(ALPHA) ) /)
+    ENDIF
+    WRITE(1,'(f)') abs(tempL-tempR)/abs(temp1)
+    CLOSE(1)
+    IF(VERBOSE) THEN
+      WRITE(*,'(4A40)') 'temp1', 'temp2', 'temp3', 'tempR'
+      WRITE(*,'(8G20.10)') ((/temp1(i),temp2(i),temp3(i),tempR(i)/),i=1,size(ALPHA))
+    ENDIF
   END SUBROUTINE output_error
   SUBROUTINE output_evecs_linconst(phi1,phi2,phi3,grid,VR)
     TYPE(linear), DIMENSION(:), INTENT(IN) :: phi1

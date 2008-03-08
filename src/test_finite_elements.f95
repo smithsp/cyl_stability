@@ -5,7 +5,7 @@ PROGRAM test_finite_elements
   USE cyl_matrix_module
   USE sort_module
   IMPLICIT NONE
-  INTEGER, PARAMETER :: N=40
+  INTEGER, PARAMETER :: N=20
   TYPE(linear), DIMENSION(N) :: phi
   TYPE(constant), DIMENSION(N-1) :: psi, chi
   TYPE(bspline), DIMENSION(0:N+1) :: xi, xi_deriv
@@ -21,7 +21,7 @@ PROGRAM test_finite_elements
     END FUNCTION f
   END INTERFACE
   nx = size(x)
-  ar = .9
+  ar = 1.0
   kz = 1.2
   gamma = 5./3.
   mt = -1
@@ -115,6 +115,7 @@ PROGRAM test_finite_elements
   WRITE (*,*) 'xi(N+1)%error = ',xi(N+1)%error, 'xi(N+1)%xj = ', xi(N+1)%xj
   WRITE (*,'(a,4g)')   'xi(N+1)%dx = ',xi(N+1)%dx,'xi(N+1)%A = ', xi(N+1)%A, 'xi(N+1)%B = ', xi(N+1)%B,&
   &'xi(N+1)%C = ', xi(N+1)%C, 'xi(N+1)%D = ', xi(N+1)%D
+  WRITE(*,*) 'val(xi_deriv(N),ar)=',val(xi_deriv(N),ar), 'val(xi(N+1),ar)=', val(xi(N+1),ar), 'val(xi_deriv(N+1),ar)=',val(xi_deriv(N+1),ar)
   
   OPEN (1, status='replace',file='finite_element_values.txt')
   WRITE (1,'(22a20)') &
