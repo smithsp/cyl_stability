@@ -45,7 +45,7 @@ PROGRAM cyl
     IF (spline) THEN
       IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0).and.(br.le.ar)) THEN
         CALL bspline_deriv_sa
-      ELSEIF (tw.gt.0) THEN
+      ELSEIF ((tw.gt.0).and.(br.gt.ar)) THEN
         CALL bspline_deriv_rw
       ELSE
         CALL bspline_deriv
@@ -68,7 +68,7 @@ PROGRAM cyl
     IF (spline) THEN
       IF((Vz0.eq.0).and.(Vp0.eq.0).and.(epsVp.eq.0).and.(epsVz.eq.0).and.(br.le.ar)) THEN
         CALL bspline_deriv_sa
-      ELSEIF (tw.gt.0) THEN
+      ELSEIF ((tw.gt.0).and.(br.gt.ar)) THEN
         CALL bspline_deriv_rw
       ELSE
         CALL bspline_deriv
@@ -390,6 +390,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     
     vcyl = .true.
     WRITE (*,*) '************Using bspline_deriv**************'
+    upper1 = N
   ! The wall is not at the plasma surface  
     IF (br.gt.ar) THEN
       CALL init_bc
@@ -638,7 +639,12 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL output_evals(ALPHAR/BETA,ALPHAI/BETA)
     CALL output_evecs_spline(phi1,phi2,phi3,grid,VR) 
     CALL output_error_real(ALPHAR,ALPHAI,BETA,VR,phi1,phi2,phi3)
-    DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
+    WRITE (*,*) ALLOCATED(grid),ALLOCATED(phi1),ALLOCATED(phi2),ALLOCATED(phi3),ALLOCATED(phi4),ALLOCATED(phi5),ALLOCATED(phi6),&
+    & ALLOCATED(A),ALLOCATED(B),ALLOCATED(C),ALLOCATED(D),ALLOCATED(VR),ALLOCATED(VL),ALLOCATED(ALPHAI),ALLOCATED(ALPHAR),ALLOCATED(BETA),ALLOCATED(RWORK),ALLOCATED(WORK)
+    DEALLOCATE(grid,phi1,phi2,phi3,phi4,phi5,phi6,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK,stat=k) 
+    !IF (VERBOSE) THEN
+      WRITE(*,*) 'DEALLOCATION STATUS IS', k
+    !ENDIF
   END SUBROUTINE bspline_deriv
   SUBROUTINE bspline_deriv_rw()
     IMPLICIT NONE
@@ -654,15 +660,18 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ELSE
       lower1=1
     ENDIF
-  ! The wall is not at the plasma surface  
-    CALL init_bc
-    upper1 = N+1
+  ! The wall is not at the plasma surface
+    IF (br.gt.ar) THEN
+      CALL init_bc
+      upper1 = N+1
+    ENDIF
     
   ! Allocate the grid, finite elements, vectors, and matrices
     ALLOCATE(grid(N))    
     ALLOCATE(phi1(lower1:upper1),phi2(lower1:upper1),phi3(lower1:upper1),phi4(lower1:upper1),phi5(lower1:upper1),phi6(lower1:upper1))
     nphi1 =  size(phi1); nphi2 = size(phi2); nphi3 = size(phi3); nphi4 = size(phi4); nphi5 = size(phi5); nphi6 = size(phi6)
-    NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)
+    ! We're going to add 1 to NN for the coefficient C2 of the vacuum solution
+    NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)+1
     LWORK=10*NN
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(LWORK))
     LDVR = NN
@@ -701,6 +710,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     k = 1
     m = k+3
     CALL cpu_time(at1)
+  ! The assumption on all of the assmebling of the matrices is that only the N+1th element of phi1,phi4 is not equal to 0. 
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -848,9 +858,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+3,6*(i-lower(m))+3)
       ENDDO
     ENDDO
-    ! This is for a wall not at the surface
+  ! This is for a wall not at the surface
     IF (br.gt.ar) THEN
-      ! These are the extra terms after integrating by parts, replaced by boundary conditions
+    ! These are the extra terms from integrating by parts, replaced by perturbed pressure balance
       k = 4
       m = k-3
       DO i=lower(m),upper(m)
@@ -861,27 +871,34 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
             D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval(BCB1((/ar/))+BCB1cw((/ar/)))*val(phi1(j),ar)
           ELSE ! This is for a resistive wall
-            C(6*(i-lower(m))+k,6*(j-lower(l))+l) =  -CMPLX(0,1,r8)*ar*val(phi1(i),ar)*&
-            & minval(BCA1rw((/ar/))*val(phi1(j),ar)+BCA1arw((/ar/))*val_prime(phi1(j),ar))
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval(BCB1((/ar/))+BCB1rw((/ar/)))*val(phi1(j),ar)
+            ! This is for unknown C1
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) = val(phi1(i),ar)*minval(BCB1((/ar/))-(mt*Bt((/ar/))+kz*ar*Bz((/ar/)))**2/ar*La/kz/Ladot)
+            ! This is for unknown C2
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  val(phi1(i),ar)*minval(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi1(j),ar)
           ENDIF
         ENDDO
-        l = 2
-        DO j=max(i-3,lower(l)),min(i+3,upper(l))
-          IF ((br.le.1000.0).and.(tw.gt.0)) THEN ! This is for a resistive wall
-            C(6*(i-lower(m))+k,6*(j-lower(l))+l) =  -CMPLX(0,1,r8)*ar*val(phi1(i),ar)*&
-            & minval(BCA2rw((/ar/))*val(phi2(j),ar))
-          ENDIF
-        ENDDO
-        l = 3
-        DO j=max(i-3,lower(l)),min(i+3,upper(l))
-          IF ((br.le.1000.0).and.(tw.gt.0)) THEN ! This is for a resistive wall
-            C(6*(i-lower(m))+k,6*(j-lower(l))+l) =  -CMPLX(0,1,r8)*ar*val(phi1(i),ar)*&
-            & minval(BCA2rw((/ar/))*val(phi2(j),ar))
-          ENDIF
-        ENDDO
+        ! This is for unknown C1
+        D(6*(i-lower(m))+k,NN) = -val(phi1(i),ar)*cmplx(0,1,r8)*minval(mt*Bt((/ar/))+kz*ar*Bz((/ar/)))*(La*Kadot-Ladot*Ka)/Ladot
+        ! This is for unknown C2
+        D(6*(i-lower(m))+k,NN) = val(phi1(i),ar)*cmplx(0,1,r8)*minval(mt*Bt((/ar/))+kz*ar*Bz((/ar/)))*(La*Kadot-Ladot*Ka)/Kadot
       ENDDO
     ENDIF
+    l=1
+    ! This is for unknown C1
+    DO j=lower(l),upper(l)
+      C(NN,6*(j-lower(l))+l) = br*tw/(mt**2+kz**2*br**2)/Ladot*Lbdot*minval(m*Bt((/ar/))+kz*ar*Bz((/ar/)))/ar*val(phi1(j),ar)
+      D(NN,6*(j-lower(l))+l) = (Kbdot*Lb-Kb*Lbdot)/Kbdot/Ladot*cmplx(0,1,r8)*minval(mt*Bt((/ar/))+kz*ar*Bz((/ar/)))/ar/kz*val(phi1(j),ar)
+    ENDDO
+    C(NN,NN) = br*tw/(mt**2+kz**2*br**2)/Ladot*cmplx(0,1,r8)*(Kadot*Lbdot-Kbdot*Ladot)
+    D(NN,NN) = (Kbdot*Lb-Kb*Lbdot)/Kbdot/Ladot*Kadot
+    ! This is for unknown C2
+    DO j=lower(l),upper(l)
+ ! There was a k,kz, m,mt mistake in the following line
+      C(NN,6*(j-lower(l))+l) = br*Kbdot*minval(mt*Bt((/ar/))+kz*ar*Bz((/ar/)))/ar/(mt**2+kz**2*br**2)/Kadot*val(phi1(j),ar)
+      D(NN,6*(j-lower(l))+l) = 0
+    ENDDO
+    C(NN,NN) = -cmplx(0,1,r8)*kz*br*(Kadot*Lbdot-Kbdot*Ladot)/(mt**2+kz**2*br**2)/Kadot
+    D(NN,NN) = -(Kbdot*Lb-Kb*Lbdot)/Kbdot/tw
     B=B+D
     A=A+C
     CALL cpu_time(at2)
@@ -920,10 +937,12 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL cpu_time(st2)
     st = st+st2-st1
     CALL output_params(at2-at1,st2-st1)
-    WRITE (*,*) 'ALPHA = '
-    WRITE (*,'(2G)') ALPHA
-    WRITE (*,*) 'BETA = '
-    WRITE (*,'(2G)') BETA
+    IF (VERBOSE) THEN
+      WRITE (*,*) 'ALPHA = '
+      WRITE (*,'(2G)') ALPHA
+      WRITE (*,*) 'BETA = '
+      WRITE (*,'(2G)') BETA
+    ENDIF
     IF (maxval(abs(AIMAG(BETA))).EQ.0) THEN
       CALL output_evals(REAL(ALPHA)/REAL(BETA),AIMAG(ALPHA)/REAL(BETA))
     ELSE
