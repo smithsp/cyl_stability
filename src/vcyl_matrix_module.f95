@@ -160,13 +160,13 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: n0
-    n0 = r**2*Ka*(mt**2+kz**2*br**2)*(mt*Bt(r)/r+kz*Bz(r))**2*(Lb*Kbdot-Lbdot*Kb)
+    n0 = Ka*(mt**2+kz**2*br**2)*(mt*Bt(r)/r+kz*Bz(r))**2*(Lb*Kbdot-Lbdot*Kb)
   END FUNCTION n0
   FUNCTION n1(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: n1
-    n1 = kz*br*tw*Kbdot*(mt*Bt(r)/r+kz*Bz(r))**2*(Kbdot*La-Ka*Lbdot)
+    n1 = -kz*br*tw*Kbdot*(mt*Bt(r)/r+kz*Bz(r))**2*(Kbdot*La-Ka*Lbdot)
   END FUNCTION n1
   FUNCTION d0(r)
     IMPLICIT NONE
@@ -178,7 +178,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: d1
-    d1 = kz**2*br*tw*Kbdot*(Kadot*Lbdot-Kbdot*Ladot)
+    d1 = -kz**2*br*tw*Kbdot*(Kadot*Lbdot-Kbdot*Ladot)
   END FUNCTION d1
   FUNCTION BCB1rw(r)
     IMPLICIT NONE

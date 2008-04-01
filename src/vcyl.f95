@@ -624,6 +624,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE (1,*) 'D='
       WRITE (1,FMT) transpose(D)
       CLOSE(1)
+      WRITE(0,*) 'Alvfen range=',alfven_range(grid)
     ENDIF
     C=A(:,:)
     D=B(:,:)
@@ -924,6 +925,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE (1,*) 'D='
       WRITE (1,FMT) REAL(transpose(D))
       CLOSE(1)
+      WRITE(0,*) 'Alvfen range=',alfven_range(grid)
     ENDIF
     WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
     C = A
