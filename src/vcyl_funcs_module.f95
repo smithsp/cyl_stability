@@ -32,6 +32,12 @@ CONTAINS
     ENDSELECT
     RETURN
   END FUNCTION Vp
+  FUNCTION kV(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: kV
+    kV = mt*Vp(r)+kz*Vz(r)
+  END FUNCTION kV
   FUNCTION equilibrium_V(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: equilibrium_V

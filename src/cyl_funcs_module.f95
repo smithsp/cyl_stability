@@ -9,26 +9,26 @@ MODULE cyl_funcs_module
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
 
 CONTAINS
-  FUNCTION kB(r)
+  FUNCTION kdotB(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
-    REAL(r8), DIMENSION(size(r)) :: kB
-    kB = mt*Bt0/ar+kz*Bz(r)
-  END FUNCTION kB
+    REAL(r8), DIMENSION(size(r)) :: kdotB
+    kdotB = mt*Bt0/ar+kz*Bz(r)
+  END FUNCTION kdotB
   FUNCTION alfven_range(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(2) :: alfven_range
-    alfven_range(1) = minval(1/(rho(r))* kB(r)**2)
-    alfven_range(2) = maxval(1/(rho(r))* kB(r)**2)
+    alfven_range(1) = minval(1/(rho(r))* kdotB(r)**2)
+    alfven_range(2) = maxval(1/(rho(r))* kdotB(r)**2)
     RETURN    
   END FUNCTION alfven_range
   FUNCTION slow_inf_range(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(2) :: slow_inf_range
-    slow_inf_range(1) = minval(gamma*P(r)*kB(r)**2/(rho(r)*(Bmag(r)**2+gamma*P(r))))
-    slow_inf_range(2) = maxval(gamma*P(r)*kB(r)**2/(rho(r)*(Bmag(r)**2+gamma*P(r))))
+    slow_inf_range(1) = minval(gamma*P(r)*kdotB(r)**2/(rho(r)*(Bmag(r)**2+gamma*P(r))))
+    slow_inf_range(2) = maxval(gamma*P(r)*kdotB(r)**2/(rho(r)*(Bmag(r)**2+gamma*P(r))))
     RETURN 
   END FUNCTION slow_inf_range
   FUNCTION max_slow()
