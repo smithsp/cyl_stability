@@ -438,12 +438,12 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
     WRITE(FMTR,'(a,I,a)') '(',nphi1,'G20.11)'
 
+    CALL cpu_time(at1)
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
     A = 0.;    B = 0.;    C = 0.;    D = 0.
   !k is the row of the submatrix
     k = 1
     m = k+3
-    CALL cpu_time(at1)
     ! Note that I've made the assumption that phi1=phi4, phi2=phi3=phi5=phi6
     DO i=lower(m),upper(m)
     ! l is the column of the submatrix
@@ -630,6 +630,72 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO
     ENDIF
     B=B+D !Sign?
+  ! This is to account for regularity at the center
+    IF (mt.ne.1) THEN
+      IF (lower(1).le.1) THEN
+        i = 1
+        m = 1
+        DO k=1,4,3
+          A(6*(i-lower(m))+k,:) = 0
+          B(6*(i-lower(m))+k,:) = 0
+          A(:,6*(i-lower(m))+k) = 0
+          B(:,6*(i-lower(m))+k) = 0
+        ENDDO
+        k=1;  l=1;  j=1
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+        k=4;  l=4;  j=1
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+        k=4;  l=1;  j=1
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+        k=1;  l=4;  j=1
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+      ENDIF
+    ENDIF
+!  IF (lower(2).le.1) THEN
+!    i = 1
+!    m = 2
+!    DO k=2,5,3
+!      A(6*(i-lower(m))+k,:) = 0
+!      B(6*(i-lower(m))+k,:) = 0
+!      A(:,6*(i-lower(m))+k) = 0
+!      B(:,6*(i-lower(m))+k) = 0
+!    ENDDO
+!    k=2;  l=2;  j=1
+!    A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+!    B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+!    k=5;  l=5;  j=1
+!    A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+!    B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+!    k=5;  l=2;  j=1
+!    B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+!    k=2;  l=5;  j=1
+!    B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+!  ENDIF
+    IF (lower(3).le.1) THEN
+      DO i = 1,2
+        j = i
+        m = 3
+        DO k=3,6,3
+          A(6*(i-lower(m))+k,:) = 0
+          B(6*(i-lower(m))+k,:) = 0
+          A(:,6*(i-lower(m))+k) = 0
+          B(:,6*(i-lower(m))+k) = 0
+        ENDDO
+        k=3;  l=3
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+        k=6;  l=6
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+        k=6;  l=3
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+        k=3;  l=6
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-80
+      ENDDO
+    ENDIF
+      
     CALL cpu_time(at2)
     at = at+at2-at1
     IF(verbose) THEN

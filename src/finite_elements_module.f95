@@ -660,13 +660,13 @@ CONTAINS
             IF(stat.gt.0) WRITE (*,*) 'The problem is here'
             tempa = (/a,b/)
             IF ((prime1).and.(.not.prime2)) THEN
-              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val(spline2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val(spline2,tempa)))
             ELSEIF ((prime2).and.(.not.prime1)) THEN
-              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val_prime(spline2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val_prime(spline2,tempa)))
             ELSEIF ((prime1).and.(prime2)) THEN
-              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val_prime(spline2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val_prime(spline2,tempa)))
             ELSE
-              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val(spline2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val(spline2,tempa)))
             ENDIF
             DEALLOCATE(tempa)
             IF((i_max*2-1)>0) THEN
@@ -683,14 +683,14 @@ CONTAINS
           ENDIF
           IF (k >= 2) THEN
             IF ((prime1).and.(.not.prime2)) THEN
-              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val(spline2,tempa)*tempa))
+              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val(spline2,tempa)))
             ELSEIF ((prime2).and.(.not.prime1)) THEN
-              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val_prime(spline2,tempa)*tempa))
+              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val_prime(spline2,tempa)))
             ELSEIF ((prime1).and.(prime2)) THEN            
               IF (size(tempa)==1) tempa=tempa+tempa*epsilon(tempa(1))
-              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val_prime(spline2,tempa)*tempa))
+              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*bspline_val_prime(spline1,tempa)*bspline_val_prime(spline2,tempa)))
             ELSE
-              inte = 0.5 *(inte + h_k*2.*sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val(spline2,tempa)*tempa))
+              inte = 0.5 *(inte + h_k*2.*sum(func(tempa)*bspline_val(spline1,tempa)*bspline_val(spline2,tempa)))
             ENDIF
           ENDIF
           IF (allocated(tempa)) DEALLOCATE(tempa)
@@ -776,11 +776,11 @@ CONTAINS
         h_k = (b - a)/(2.**(k - 1.))
         i_max = 2.**(k-2.)
         IF(k.eq.1) THEN
-          inte = 0.5 * (b - a) *(sum(func((/a, b/))*constant_val(const1,(/a,b/))*constant_val(const2,(/a,b/))*(/a, b/)))
+          inte = 0.5 * (b - a) *(sum(func((/a, b/))*constant_val(const1,(/a,b/))*constant_val(const2,(/a,b/))))
         ELSE
           ALLOCATE(tempa(i_max))
           tempa = (/(a + (2.*i-1.)*h_k, i=1,i_max)/)
-          inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*constant_val(const1,tempa)*constant_val(const2,tempa)*tempa))
+          inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*constant_val(const1,tempa)*constant_val(const2,tempa)))
           DEALLOCATE(tempa)
         END IF
         int_arr(k,1)  = inte
@@ -848,17 +848,17 @@ CONTAINS
         i_max = 2.**(k-2.)
         IF(k.eq.1) THEN
           IF (prime) THEN
-            inte = 0.5 * (b - a) *(sum(func((/a, b/))*constant_val(const1,(/a,b/))*linear_val_prime(lin1,(/a,b/))*(/a, b/)))
+            inte = 0.5 * (b - a) *(sum(func((/a, b/))*constant_val(const1,(/a,b/))*linear_val_prime(lin1,(/a,b/))))
           ELSE
-            inte = 0.5 * (b - a) *(sum(func((/a, b/))*constant_val(const1,(/a,b/))*linear_val(lin1,(/a,b/))*(/a, b/)))
+            inte = 0.5 * (b - a) *(sum(func((/a, b/))*constant_val(const1,(/a,b/))*linear_val(lin1,(/a,b/))))
           ENDIF
         ELSE
           ALLOCATE(tempa(i_max))
           tempa = (/(a + (2.*i-1.)*h_k, i=1,i_max)/)
           IF (prime) THEN
-            inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*constant_val(const1,tempa)*linear_val_prime(lin1,tempa)*tempa) )
+            inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*constant_val(const1,tempa)*linear_val_prime(lin1,tempa)) )
           ELSE
-            inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*constant_val(const1,tempa)*linear_val(lin1,tempa)*tempa) )
+            inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*constant_val(const1,tempa)*linear_val(lin1,tempa)) )
           ENDIF
           DEALLOCATE(tempa)
         END IF
@@ -941,13 +941,13 @@ CONTAINS
             ALLOCATE(tempa(2))
             tempa = (/a,b/)
             IF ((prime1).and.(.not.prime2)) THEN
-              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val(lin2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val(lin2,tempa)))
             ELSEIF ((prime2).and.(.not.prime1)) THEN
-              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val(lin1,tempa)*linear_val_prime(lin2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val(lin1,tempa)*linear_val_prime(lin2,tempa)))
             ELSEIF ((prime1).and.(prime2)) THEN
-              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val_prime(lin2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val_prime(lin2,tempa)))
             ELSE
-              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val(lin1,tempa)*linear_val(lin2,tempa)*tempa))
+              inte = 0.5 * (b-a) *(sum(func(tempa)*linear_val(lin1,tempa)*linear_val(lin2,tempa)))
             ENDIF
             DEALLOCATE(tempa)
             ALLOCATE(tempa(i_max*2-1))
@@ -962,13 +962,13 @@ CONTAINS
           IF (k >= 2) THEN
             IF ((prime1).and.(.not.prime2)) THEN
               !IF (size(tempa)==1) tempa=tempa+tempa*epsilon(tempa(1))
-              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val(lin2,tempa)*tempa))
+              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val(lin2,tempa)))
             ELSEIF ((prime2).and.(.not.prime1)) THEN
               !IF (size(tempa)==1) tempa=tempa+epsilon(tempa(1))
-              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val(lin1,tempa)*linear_val_prime(lin2,tempa)*tempa))
+              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val(lin1,tempa)*linear_val_prime(lin2,tempa)))
             ELSEIF ((prime1).and.(prime2)) THEN            
               IF (size(tempa)==1) tempa=tempa+tempa*epsilon(tempa(1))
-              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val_prime(lin2,tempa)*tempa))
+              inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val_prime(lin2,tempa)))
             ELSE
               inte = 0.5 *(inte + h_k*2.*sum(func(tempa)*linear_val(lin1,tempa)*linear_val(lin2,tempa)*tempa))
             ENDIF
