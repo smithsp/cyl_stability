@@ -19,7 +19,7 @@ PROGRAM cyl
   LOGICAL :: Lend0, Evecs
   
   NAMELIST /control_params/  ref, start, fin, verbose
-  NAMELIST /cyl_params/ equilib, N, BCrow, kz, mt, ar, br, tw, gamma, Lend0, Evecs, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
+  NAMELIST /cyl_params/ equilib, N, BCrow, kz, mt, ar, br, tw, gamma, Lend0, Evecs, spline, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp
   spline = .true.
   verbose = .false.
   phi2_deriv = .true.
@@ -421,15 +421,25 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO
       l = 2
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi1(j),A12)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi2(j),phi4(i),B12)
       ENDDO
       l = 3
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi4(i),phi1(j),A13)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi3(j),phi4(i),B13)
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(m))+1,6*(j-lower(l))+1)
+      ENDDO
+      l = 5
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(m))+1,6*(j-lower(l))+2)
+      ENDDO
+      l = 6
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(m))+1,6*(j-lower(l))+3)
       ENDDO
     ENDDO
     k = 2
@@ -437,6 +447,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(m))+l,6*(i-lower(l))+k)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(m))+l,6*(i-lower(l))+k)
       ENDDO
       l = 2
@@ -448,6 +459,10 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         A(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),A23)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi5(i),phi2(j),B23)
+      ENDDO
+      l = 4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(m))+2,6*(j-lower(l))+1)
       ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -463,6 +478,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(m))+l,6*(i-lower(l))+k)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(m))+l,6*(i-lower(l))+k)
       ENDDO
       l = 2
@@ -475,9 +491,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = int_func(phi6(i),phi3(j),A33)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = int_func(phi6(i),phi3(j),B33)
       ENDDO
+      l = 4
+      DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(m))+3,6*(j-lower(l))+1)
+      ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(m))+2,6*(i-lower(l))+3)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(m))+3,6*(j-lower(l))+2)
       ENDDO
       l = 6
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -496,27 +516,29 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO
       l = 2
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        tempB = int_func(phi1(i),phi2(j),B42b,deriv1=.true.)
-        tempC = int_func(phi1(i),phi2(j),B42c)
+        tempB = int_func(phi2(j),phi1(i),B42b,deriv2=.true.)
+        tempC = int_func(phi2(j),phi1(i),B42c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC
       ENDDO
       l = 3
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        tempB = int_func(phi1(i),phi3(j),B43b,deriv1=.true.)
-        tempC = int_func(phi1(i),phi3(j),B43c)
+        tempB = int_func(phi3(j),phi1(i),B43b,deriv2=.true.)
+        tempC = int_func(phi3(j),phi1(i),B43c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC 
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
         A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = A(6*(i-lower(m))+1,6*(j-lower(l))+1)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+m,6*(j-lower(m))+m)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+1,6*(j-lower(m))+1)
       ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = A(6*(i-lower(m))+1,6*(j-lower(l))+2)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+1,6*(j-lower(m))+2)
       ENDDO      
       l = 6
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l)  = A(6*(i-lower(m))+1,6*(j-lower(l))+3)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+1,6*(j-lower(m))+3)
       ENDDO
     ENDDO
@@ -525,8 +547,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        tempB = int_func(phi1(i),phi2(j),B42b,deriv1=.true.)
-        tempC = int_func(phi1(i),phi2(j),B51c)
+        tempB = int_func(phi2(i),phi1(j),B42b,deriv2=.true.)
+        tempC = int_func(phi2(i),phi1(j),B51c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC
       ENDDO
       l = 2
@@ -539,7 +561,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+2)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(l))+2,6*(j-lower(m))+1)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+2,6*(j-lower(m))+1)
       ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -557,8 +580,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     DO i=lower(m),upper(m)
       l = 1
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        tempB = int_func(phi1(i),phi3(j),B43b,deriv1=.true.)
-        tempC = int_func(phi1(i),phi3(j),B61c)
+        tempB = int_func(phi3(i),phi1(j),B43b,deriv2=.true.)
+        tempC = int_func(phi3(i),phi1(j),B61c)
         B(6*(i-lower(m))+k,6*(j-lower(l))+l) = tempB+tempC 
       ENDDO
       l = 2
@@ -571,12 +594,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       ENDDO
       l = 4
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+1,6*(i-lower(m))+3)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(l))+3,6*(j-lower(m))+1)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+3,6*(j-lower(m))+1)
       ENDDO
       l = 5
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
-        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(j-lower(l))+2,6*(i-lower(m))+3)
-        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(j-lower(l))+2,6*(i-lower(m))+3)
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = A(6*(i-lower(l))+3,6*(j-lower(m))+2)
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = B(6*(i-lower(l))+3,6*(j-lower(m))+2)
       ENDDO
       l = 6
       DO j=max(i-3,lower(l)),min(i+3,upper(l))
@@ -602,8 +626,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDIF
     B=B+D !Sign?
   ! This is to account for regularity at the center
-    !IF (mt.ne.1) THEN
-      IF (lower(1).le.1) THEN
+    IF (mt.ne.1) THEN
+      IF (lower(1).le.0) THEN
         DO i = 0,0
           m = 1
           DO k=1,4,3
@@ -624,7 +648,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
           !B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
         ENDDO
       ENDIF
-    !ENDIF
+    ENDIF
 !  IF (lower(2).le.1) THEN
 !    i = 1
 !    m = 2
