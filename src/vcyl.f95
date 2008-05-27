@@ -707,7 +707,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     
     grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
-    grid(1) = grid(2)/1000.0
+    grid(1) = grid(2)/100.0
   !Initialize the finite elements
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
     upper = (/ubound(phi1,1), ubound(phi2,1), ubound(phi3,1), ubound(phi4,1), ubound(phi5,1), ubound(phi6,1), ubound(phi1,1), ubound(phi2,1), ubound(phi3,1)/) 
@@ -891,42 +891,42 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     B=B+D !Sign?
   ! This is to account for regularity at the center
     !IF (mt.ne.1) THEN
-      IF (lower(1).lt.1) THEN
-        DO i = 1,0
-          m = 1
-          DO k=1,4,3
-            A(6*(i-lower(m))+k,:) = 0
-            B(6*(i-lower(m))+k,:) = 0
-            A(:,6*(i-lower(m))+k) = 0
-            B(:,6*(i-lower(m))+k) = 0
-          ENDDO
-          k=1;  l=1;  j=i
-          A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
-          B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
-          k=4;  l=4;  j=i
-          A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
-          B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+    IF (lower(1).lt.1) THEN
+      DO i = 1,0
+        m = 1
+        DO k=1,4,3
+          A(6*(i-lower(m))+k,:) = 0
+          B(6*(i-lower(m))+k,:) = 0
+          A(:,6*(i-lower(m))+k) = 0
+          B(:,6*(i-lower(m))+k) = 0
         ENDDO
-      ENDIF
-    !ENDIF
-  IF (lower(2).le.0) THEN
-    DO  i = 1,0
-      j = i
-      m = 2
-      DO k=2,5,3
-        A(6*(i-lower(m))+k,:) = 0
-        B(6*(i-lower(m))+k,:) = 0
-        A(:,6*(i-lower(m))+k) = 0
-        B(:,6*(i-lower(m))+k) = 0
+        k=1;  l=1;  j=i
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+        k=4;  l=4;  j=i
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
       ENDDO
-      k=2;  l=2
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
-      k=5;  l=5
-      A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
-      B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
-    ENDDO
-  ENDIF
+    ENDIF
+    !ENDIF
+    IF (lower(2).le.0) THEN
+      DO  i = 1,0
+        j = i
+        m = 2
+        DO k=2,5,3
+          A(6*(i-lower(m))+k,:) = 0
+          B(6*(i-lower(m))+k,:) = 0
+          A(:,6*(i-lower(m))+k) = 0
+          B(:,6*(i-lower(m))+k) = 0
+        ENDDO
+        k=2;  l=2
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+        k=5;  l=5
+        A(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1e-20
+        B(6*(i-lower(m))+k,6*(j-lower(l))+l) = 1.0
+      ENDDO
+    ENDIF
     IF (lower(3).lt.1) THEN
       DO i = 1,0
         j = i

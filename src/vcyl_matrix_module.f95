@@ -14,13 +14,13 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: A22
-    A22 = rho(r)*r
+    A22 = rho(r)/r
   END FUNCTION A22
   FUNCTION A33(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: A33
-    A33 = rho(r)*r
+    A33 = rho(r)/r
   END FUNCTION A33
   FUNCTION B11(r)
     IMPLICIT NONE
@@ -32,25 +32,25 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B12
-    B12 = rho(r)*Vp(r)*Bz(r)/Bmag(r)
+    B12 = rho(r)*Vp(r)*Bz(r)/Bmag(r)/r
   END FUNCTION B12
   FUNCTION B13(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B13
-    B13 = rho(r)*Vp(r)*Bt(r)/Bmag(r)
+    B13 = rho(r)*Vp(r)*Bt(r)/Bmag(r)/r
   END FUNCTION B13
   FUNCTION B22(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B22
-    B22 = rho(r)*r*kV(r)
+    B22 = rho(r)*kV(r)/r
   END FUNCTION B22
   FUNCTION B33(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B33
-    B33 = rho(r)*r*kV(r)
+    B33 = rho(r)*kV(r)/r
   END FUNCTION B33
   FUNCTION B41a(r)
     IMPLICIT NONE
@@ -74,43 +74,45 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B42b
-    B42b = (gamma*P(r)/Bmag(r)+Bmag(r))*(mt*Bz(r)/r-kz*Bt(r))
+    B42b = (gamma*P(r)/Bmag(r)+Bmag(r))*(mt*Bz(r)/r-kz*Bt(r))/r
   END FUNCTION B42b
   FUNCTION B42c(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B42c
-    B42c = 2*Bt(r)*kz*Bmag(r)/r+Vp(r)**2*rho(r)*(mt*Bz(r)-r*kz*Bt(r))/Bmag(r)
+    B42c = 2*Bt(r)*kz*Bmag(r)/r**2+Vp(r)**2*rho(r)*(mt*Bz(r)/r-kz*Bt(r))/Bmag(r)
   END FUNCTION B42c
   FUNCTION B43b(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B43b
-    B43b = gamma*P(r)*kdotB(r)/Bmag(r)
+    B43b = gamma*P(r)*kdotB(r)/Bmag(r)/r
   END FUNCTION B43b
   FUNCTION B43c(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B43c
-    B43c = rho(r)*Vp(r)**2*kdotB(r)*r/Bmag(r)
+    B43c = rho(r)*Vp(r)**2*kdotB(r)/Bmag(r)
   END FUNCTION B43c
   FUNCTION B52(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B52
-    B52 = gamma*P(r)/r/Bmag(r)**2*(kz*Bt(r)*r-mt*Bz(r))**2+rho(r)*r*Vp(r)**2*Bz(r)**2/Bmag(r)**2+Bmag(r)**2*(mt**2+kz**2*r**2)/r
+    B52 = gamma*P(r)/r**3/Bmag(r)**2*(kz*Bt(r)*r-mt*Bz(r))**2+&
+    & rho(r)/r*Vp(r)**2*Bz(r)**2/Bmag(r)**2+Bmag(r)**2*(mt**2+kz**2*r**2)/r**3
   END FUNCTION B52
   FUNCTION B53(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B53
-    B53 = (gamma*P(r)*kdotB(r)*(mt*Bz(r)-kz*Bt(r)*r)+Bz(r)*Bt(r)*rho(r)*Vp(r)**2*r)/Bmag(r)**2
+    B53 = (gamma*P(r)*kdotB(r)*(mt*Bz(r)-kz*Bt(r)*r)/r**2+&
+    & Bz(r)*Bt(r)*rho(r)*Vp(r)**2/r)/Bmag(r)**2
   END FUNCTION B53
   FUNCTION B63(r)
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: B63
-    B63 = (gamma*P(r)*kdotB(r)**2*r+r*rho(r)*Vp(r)**2*Bt(r)**2)/Bmag(r)**2
+    B63 = (gamma*P(r)*kdotB(r)**2/r+rho(r)/r*Vp(r)**2*Bt(r)**2)/Bmag(r)**2
   END FUNCTION B63
   ! These are the surface (boundary) terms
   FUNCTION BCB1(r)
