@@ -10,7 +10,7 @@ CONTAINS
     REAL(r8) :: Vz
     SELECT CASE (equilib)
       CASE(1:10)
-        Vz = Vz0*(1-epsVz*r**2/ar**2)
+        Vz = Vz0*(1-epsVz*r/pi/ar**2)
       CASE(11)
         Vz = 0
     ENDSELECT
@@ -28,7 +28,7 @@ CONTAINS
       CASE(3:10)
         Vp = 0
       CASE(11)
-        Vp = Vp0+epsVp*r+eps*r**2
+        Vp = Vp0+epsVp*sqrt(r/pi)+eps*r/pi
     ENDSELECT
     RETURN
   END FUNCTION Vp
@@ -41,7 +41,7 @@ CONTAINS
   FUNCTION equilibrium_V(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: equilibrium_V
-    equilibrium_V = P_prime(r) + Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+Bt(r)**2/r-rho(r)*r*Vp(r)**2
+    equilibrium_V = P_prime(r) + Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+2* Bt(r)**2/r-rho(r)*Vp(r)**2/2./pi
   END FUNCTION equilibrium_V
   SUBROUTINE init_bc
     COMPLEX(r8), DIMENSION(1) :: res

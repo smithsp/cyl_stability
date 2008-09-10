@@ -1,13 +1,15 @@
 MODULE finite_elements_module
   USE local
+  USE cyl_funcs_module
   IMPLICIT NONE
   REAL(r8) :: epsilo
   REAL(r8) :: it, it1, it2
   
   TYPE linear
-    REAL(r8), DIMENSION(2) :: dx
+    REAL(r8), DIMENSION(2) :: dx, int_fac
     REAL(r8) :: xj
     INTEGER, DIMENSION(2) :: extent
+    LOGICAL :: mod_lin
   END TYPE linear
   
   TYPE constant
@@ -22,9 +24,9 @@ MODULE finite_elements_module
     INTEGER, DIMENSION(2) :: extent
     LOGICAL :: error, deriv
   END TYPE bspline
-  
+    
   INTERFACE int_func
-    MODULE PROCEDURE int_constant_constant_func, int_constant_linear_func, int_linear_linear_func, int_spline_spline_func
+    MODULE PROCEDURE int_constant_constant_func, int_constant_linear_func, int_linear_linear_func, int_spline_spline_func, int_func
   END INTERFACE int_func
   INTERFACE val
     MODULE PROCEDURE linear_val, constant_val, bspline_val
@@ -35,6 +37,18 @@ MODULE finite_elements_module
   INTERFACE init
     MODULE PROCEDURE linear_init, constant_init, bspline_init
   END INTERFACE init
+  INTERFACE OPERATOR(*)
+    MODULE PROCEDURE mult_spline
+  END INTERFACE 
+  INTERFACE OPERATOR( /)
+    MODULE PROCEDURE div_spline
+  END INTERFACE 
+  INTERFACE OPERATOR(+)
+    MODULE PROCEDURE add_spline
+  END INTERFACE 
+  INTERFACE OPERATOR(-)
+    MODULE PROCEDURE sub_spline
+  END INTERFACE 
   
 CONTAINS
   
@@ -56,61 +70,112 @@ CONTAINS
       this%extent(2) = 1
       this%dx(2) = p3-xj
     ENDIF
+    this%mod_lin = .false.
   END SUBROUTINE linear_init
   
-  ELEMENTAL FUNCTION linear_val(this,x)
+  SUBROUTINE linear_int_fac(this)
+    TYPE(linear), DIMENSION(:) :: this
+    INTEGER :: i
+    DO i=1,size(this)
+      this(i)%int_fac(1) = int_func(mod_lin_func,this(i)%xj-this(i)%dx(1),this(i)%xj)
+      this(i)%int_fac(2) = int_func(mod_lin_func,this(i)%xj,this(i)%xj+this(i)%dx(2))
+    ENDDO
+  END SUBROUTINE linear_int_fac
+  FUNCTION linear_val(this,x)
     IMPLICIT NONE
     TYPE(linear), INTENT(IN) :: this
-    REAL(r8) :: linear_val
-    REAL(r8), INTENT(IN) :: x
-    REAL(r8) :: x1
+    REAL(r8), INTENT(IN), DIMENSION(:) :: x
+    REAL(r8), DIMENSION(size(x)) :: linear_val, x1
+    INTEGER :: i
     !
-    IF ( this%extent(2).eq.0 ) THEN
-      linear_val = 0.
-      RETURN
-    ENDIF
     x1 = x-this%xj
-    IF ( (x1>-this%dx(1)).and.(x1<0) ) THEN
-      linear_val = 1.+x1/this%dx(1)
-      RETURN
-    ELSEIF( (x1>0).and.(x1<this%dx(2)) ) THEN
-      linear_val = 1.-x1/this%dx(2)
-      RETURN
-    ELSEIF ( (x1==0) ) THEN
-      linear_val = 1.
-      RETURN
-    ELSE      
-      linear_val = 0.
-      RETURN
-    ENDIF
+    DO i=1,size(x)
+      IF (.not.this%mod_lin) THEN
+        IF    ( (x1(i)>-this%dx(1)).and.(x1(i)<0) ) THEN
+          linear_val(i) = 1.+x1(i)/this%dx(1)
+        ELSEIF( (x1(i)>0).and.(x1(i)< this%dx(2)) ) THEN
+          linear_val(i) = 1.-x1(i)/this%dx(2)
+        ELSEIF ( (x1(i)==0) ) THEN
+          linear_val(i) = 1.
+        ELSE      
+          linear_val(i) = 0.
+        ENDIF
+      ELSE
+        IF    ( (x1(i)>-this%dx(1)).and.(x1(i)<0) ) THEN
+          linear_val(i) = (int_mod_lin_func(x(i))-int_mod_lin_func(this%xj-this%dx(1)))/(int_mod_lin_func(this%xj)-int_mod_lin_func(this%xj-this%dx(1)))
+          !int_func(mod_lin_func,this%xj-this%dx(1),x(i))/this%int_fac(1)
+        ELSEIF( (x1(i)>0).and.(x1(i)< this%dx(2)) ) THEN
+          linear_val(i) = (int_mod_lin_func(this%xj+this%dx(2))-int_mod_lin_func(x(i)))/(int_mod_lin_func(this%xj+this%dx(2))-int_mod_lin_func(this%xj))
+          !int_func(mod_lin_func,x(i),this%xj+this%dx(2))/this%int_fac(2)
+        ELSEIF ( (x1(i)==0) ) THEN
+          linear_val(i) = 1.
+        ELSE      
+          linear_val(i) = 0.
+        ENDIF
+      ENDIF
+    ENDDO
     RETURN
   END FUNCTION linear_val
+  FUNCTION x2(x)
+    IMPLICIT NONE
+    real(r8), intent(in), dimension(:) :: x
+    real(r8), dimension(size(x)) :: x2
+    x2 = 1.
+  end function x2
   
-  ELEMENTAL FUNCTION linear_val_prime(this,x)
+  FUNCTION mod_lin_func(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN), DIMENSION(:) :: r
+    REAL(r8), DIMENSION(size(r)) :: mod_lin_func
+    mod_lin_func = Bt(r)*sqrt(r)/Bz(r)
+  END FUNCTION mod_lin_func
+  FUNCTION int_mod_lin_func(r)
+    IMPLICIT NONE
+    REAL(r8), INTENT(IN) :: r
+    REAL(r8)  :: int_mod_lin_func
+    SELECT CASE (equilib)
+      CASE(1:2,4:9,11)
+        int_mod_lin_func = 0
+      CASE(3)
+        int_mod_lin_func = r**2*Bt0/Bz0/2/sqrt(psi0)
+      CASE(10)
+        int_mod_lin_func = -1./3.*Bt0*(2*Bt0**2*psi0+Bt0**2*r-2*p0*psi0+psi0*Bz0**2-p0*r)*&
+        & sqrt(psi0*Bz0**2-2*p0*psi0+2*p0*r+2*Bt0**2*psi0-2*Bt0**2*r)/(-p0+Bt0**2)**2
+    ENDSELECT
+    
+  END FUNCTION int_mod_lin_func
+  
+  FUNCTION linear_val_prime(this,x)
     IMPLICIT NONE
     TYPE(linear), INTENT(IN) :: this
-    REAL(r8) :: linear_val_prime
-    REAL(r8), INTENT(IN) :: x
-    REAL(r8) :: x1
+    REAL(r8), INTENT(IN), DIMENSION(:) :: x
+    REAL(r8), DIMENSION(size(x)) :: linear_val_prime, x1
+    INTEGER :: i
     !
-    IF ( this%extent(2).eq.0 ) THEN
-      linear_val_prime = 0.
-      RETURN
-    ENDIF
     x1 = x-this%xj
-    IF ( (x1>=-this%dx(1)).and.(x1<0) ) THEN
-      linear_val_prime = 1./this%dx(1)
-      RETURN
-    ELSEIF( (x1>0).and.(x1<=this%dx(2)) ) THEN
-      linear_val_prime = -1./this%dx(2)
-      RETURN
-    ELSEIF ( (x1==0) ) THEN
-      linear_val_prime = 0 !or should this be 1/2*(1/d1-1/d2)
-      RETURN
-    ELSE      
-      linear_val_prime = 0.
-      RETURN
-    ENDIF
+    DO i=1,size(x)
+      IF (.not.this%mod_lin) THEN
+        IF ( (x1(i)>=-this%dx(1)).and.(x1(i)<0) ) THEN
+          linear_val_prime(i) = 1./this%dx(1)
+        ELSEIF( (x1(i)>0).and.(x1(i)<=this%dx(2)) ) THEN
+          linear_val_prime(i) = -1./this%dx(2)
+        ELSEIF ( (x1(i)==0) ) THEN
+          linear_val_prime(i) = 0 !or should this be 1/2*(1/d1-1/d2)
+        ELSE      
+          linear_val_prime(i) = 0.
+        ENDIF
+      ELSE
+        IF ( (x1(i)>=-this%dx(1)).and.(x1(i)<0) ) THEN
+          linear_val_prime(i) =  minval(mod_lin_func((/x(i)/)))/this%int_fac(1)
+        ELSEIF( (x1(i)>0).and.(x1(i)<=this%dx(2)) ) THEN
+          linear_val_prime(i) = -minval(mod_lin_func((/x(i)/)))/this%int_fac(2)
+        ELSEIF ( (x1(i)==0) ) THEN
+          linear_val_prime(i) = 0 !or should this be 1/2*(1/d1-1/d2)
+        ELSE      
+          linear_val_prime(i) = 0.
+        ENDIF
+      ENDIF
+    ENDDO
     RETURN
   END FUNCTION linear_val_prime
   
@@ -598,6 +663,85 @@ CONTAINS
     RETURN
   END FUNCTION bspline_val_prime
   
+  FUNCTION sub_spline(spline1,spline2)
+    TYPE(bspline), INTENT(IN) :: spline1,spline2
+    TYPE(bspline) :: sub_spline
+    sub_spline = spline1
+    sub_spline%A = spline1%A-spline2%A
+    sub_spline%B = spline1%B-spline2%B
+    sub_spline%C = spline1%C-spline2%C
+    sub_spline%D = spline1%D-spline2%D
+    RETURN
+  END FUNCTION sub_spline
+  FUNCTION add_spline(spline1,spline2)
+    TYPE(bspline), INTENT(IN) :: spline1,spline2
+    TYPE(bspline) :: add_spline
+    add_spline = spline1
+    add_spline%A = spline1%A+spline2%A
+    add_spline%B = spline1%B+spline2%B
+    add_spline%C = spline1%C+spline2%C
+    add_spline%D = spline1%D+spline2%D
+    RETURN
+  END FUNCTION add_spline
+  FUNCTION mult_spline(spline1,r1)
+    REAL(r8), INTENT(IN) :: r1
+    TYPE(bspline), INTENT(IN) :: spline1
+    TYPE(bspline) :: mult_spline
+    mult_spline = spline1
+    mult_spline%A = r1*spline1%A
+    mult_spline%B = r1*spline1%B
+    mult_spline%C = r1*spline1%C
+    mult_spline%D = r1*spline1%D
+    RETURN
+  END FUNCTION mult_spline
+  FUNCTION div_spline(spline1,r1)
+    REAL(r8), INTENT(IN) :: r1
+    TYPE(bspline), INTENT(IN) :: spline1
+    TYPE(bspline) :: div_spline
+    div_spline = spline1
+    div_spline%A = spline1%A/r1
+    div_spline%B = spline1%B/r1
+    div_spline%C = spline1%C/r1
+    div_spline%D = spline1%D/r1
+    RETURN
+  END FUNCTION div_spline
+  FUNCTION shift_spline(spline1)
+    TYPE(bspline), INTENT(IN) :: spline1
+    TYPE(bspline) :: shift_spline
+    REAL(r8), DIMENSION(0:3) :: A,B,C,D
+    REAL(r8) :: xj
+    IF (spline1%xj.ne.0.0) THEN
+      WRITE (0,*) 'Error: Attempting to shift a spline that is not centered at zero.'
+    ENDIF
+    shift_spline%xj = spline1%xj+spline1%dx(3)
+    xj = spline1%dx(3)
+    A = spline1%A
+    B = spline1%B
+    C = spline1%C
+    D = spline1%D
+    A(0) = B(0)+B(1)*xj+B(2)*xj**2+B(3)*xj**3
+    A(1) = B(1)+2*xj*B(2)+3*B(3)*xj**2
+    A(2) = B(2)+3*B(3)*xj
+    A(3) = B(3)
+    
+    B(0) = C(0)+C(1)*xj+C(2)*xj**2+C(3)*xj**3
+    B(1) = C(1)+2*xj*C(2)+3*C(3)*xj**2
+    B(2) = C(2)+3*C(3)*xj
+    B(3) = C(3)
+    
+    C(0) = D(0)+D(1)*xj+D(2)*xj**2+D(3)*xj**3
+    C(1) = D(1)+2*xj*D(2)+3*D(3)*xj**2
+    C(2) = D(2)+3*D(3)*xj
+    C(3) = D(3)
+    shift_spline%D = 0
+    shift_spline%C = C
+    shift_spline%B = B
+    shift_spline%A = A
+    shift_spline%dx(1:3) = spline1%dx(2:4)
+    shift_spline%dx(4) = 0
+    shift_spline%extent = spline1%extent+(/1,-1/)
+  END FUNCTION shift_spline
+  
   FUNCTION int_spline_spline_func(spline1,spline2,func,deriv1,deriv2)
     REAL(r8) :: int_spline_spline_func
     TYPE(bspline) :: spline1,spline2
@@ -808,6 +952,67 @@ CONTAINS
       int_constant_constant_func = r_int
     ENDIF
   END FUNCTION int_constant_constant_func
+  FUNCTION int_func(func,a,b)
+    IMPLICIT NONE
+    REAL(r8) :: int_func
+    REAL(r8), INTENT(IN) :: a,b
+    INTERFACE
+      FUNCTION func(r)
+        USE local
+        REAL(r8), INTENT(IN), DIMENSION(:) :: r
+        REAL(r8), DIMENSION(size(r)) :: func
+      END FUNCTION func
+    END INTERFACE
+    INTEGER(i4), PARAMETER :: max_div = 7        ! maximum divisions of [a,b]
+    INTEGER(i4) :: j, k, min_k, i, i_max
+    REAL(r8), DIMENSION(max_div,max_div) ::  int_arr
+    REAL(r8) :: error , r_int, error2, inte, h_k
+    REAL(r8), DIMENSION(:), ALLOCATABLE :: tempa
+    !
+    IF (b<=a) THEN 
+      int_func = 0.
+    ELSE
+      min_k = 1
+      inte = 0.
+      r_int = 0.
+      ! Outer loop yields next composite trapezoidal rule estimate
+      DO k = min_k, max_div
+        h_k = (b - a)/(2.**(k - 1.))
+        i_max = 2.**(k-2.)
+        IF(k.eq.1) THEN
+          inte = 0.5 * (b - a) *(sum(func((/a, b/))))
+        ELSE
+          ALLOCATE(tempa(i_max))
+          tempa = (/(a + (2.*i-1.)*h_k, i=1,i_max)/)
+          inte = 0.5 * (inte + h_k*2.*sum(func(tempa)))
+          DEALLOCATE(tempa)
+        END IF
+        int_arr(k,1)  = inte
+        ! Inner loop produces entire row of Romberg tableau
+        DO j= (min_k + 1),k
+          int_arr(k,j) = int_arr(k,j-1) + (int_arr(k,j-1) - int_arr(k-1,j-1))/(4.**(j-1.)-1.)
+        END DO
+        IF (k.gt.2) THEN
+          r_int = int_arr(k,k)
+          error = r_int - int_arr(k-1,k-1)
+          IF(abs(error).le.epsilo*abs(r_int).or. (abs(r_int).lt.epsilo.and.k.gt.15)) THEN
+            error2 = r_int - int_arr(k-2,k-2)
+            !test the next nearest neighbor in the diagonal
+            IF((abs(error2).le.epsilo*abs(r_int).and.k.gt.4).or. (abs(r_int).lt.epsilo.and.k.gt.15)) THEN
+              int_func = r_int
+              RETURN
+            END IF
+          END IF
+        END IF
+      END DO
+      IF(verbose) THEN
+        WRITE (*,*) 'Warning:  int_func did not converge well for (a,b)=',(/a,b/) , ' for f(a,b)*(a,b)=', func((/a,b/))*(/a,b/)
+        WRITE (*,*) 'inte(k) = ', (/ (int_arr(k,min_k), k=min_k,max_div) /)
+        WRITE (*,*) 'int_arr(k,k) = ', (/ (int_arr(k,k), k=min_k,max_div) /)
+      ENDIF
+      int_func = r_int
+    ENDIF
+  END FUNCTION int_func
   
   FUNCTION int_constant_linear_func(const1,lin1,func,deriv2)
     IMPLICIT NONE

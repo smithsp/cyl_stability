@@ -6,11 +6,12 @@ PROGRAM test_finite_elements
   USE sort_module
   IMPLICIT NONE
   INTEGER, PARAMETER :: N=20
-  TYPE(linear), DIMENSION(N) :: phi
+  TYPE(linear), DIMENSION(N) :: phi,phi_mod
   TYPE(constant), DIMENSION(N-1) :: psi, chi
   TYPE(bspline), DIMENSION(0:N+1) :: xi, xi_deriv
+  TYPE(bspline) :: xi1, xi2, xi3, xi0
   REAL(r8), DIMENSION(N) :: grid
-  REAL(r8) :: temp, dx1, dx2, Bz1, ptemp(1), xj, dx(5), x(100*N)
+  REAL(r8) :: temp, dx1, dx2, Bz1, ptemp(1), xj, dx(5), x(300*N)
   INTEGER :: i, nx
   LOGICAL :: Lend0, Rend0
   INTERFACE
@@ -22,19 +23,23 @@ PROGRAM test_finite_elements
   END INTERFACE
   nx = size(x)
   ar = 1.0
-  kz = 1.2
+  kz = .1
   gamma = 5./3.
-  mt = -1
+  mt = 2
   eps = 0.
-  Bz0 = 2.
-  equilib = 4
-  P0  = .05
+  Bz0 = 15.
+!  equilib = 4
+  P0  = .0
   P1 = .50
   lambd = 2.
   rho0 = 1.
-  Bt0 = 0
-  grid = (/ (i*ar/real(N-1), i=0,N-1) /)
-  alpha = 2.4
+  Bt0 = 1.
+  Bz0 = 15
+  equilib=10
+  grid = (/ (i*pi*ar**2/real(N-1), i=0,N-1) /)
+  grid = new_grid(grid)
+  grid(1) = grid(2)/1000.0
+  alpha = 1.0
   rs = .77
   !kB = .true.
   CALL calc_rs(grid)
@@ -58,23 +63,35 @@ PROGRAM test_finite_elements
   CALL init(xi(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2), p3=grid(N),RendZero=Rend0)
   CALL init(xi(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=Rend0)
   CALL init(xi(N+1),grid(N),p2=grid(N-1),RendZero=Rend0)
-  
-  CALL init(xi_deriv(1),grid(1),p3=grid(2), p4=grid(3),deriv=.true.,LendZero=Lend0)
-  CALL init(xi_deriv(2),grid(2),p2=grid(1),p3=grid(3),p4=grid(4),deriv=.true.,LendZero=Lend0)
-  CALL init(xi_deriv(0),grid(1),p3=grid(2),deriv=.true.,LendZero=.true.)
-  !CALL init(xi_deriv(1),grid(2),p2=grid(1),p3=grid(3),deriv=.true.,LendZero=.true.)
-  !CALL init(xi_deriv(2),grid(2),p2=grid(1),p3=grid(3),deriv=.true.,RendZero=.true.)  
-  CALL init(xi_deriv(3:N-2),grid(3:N-2),p1=grid(1:N-4),p2=grid(2:N-3),p3=grid(4:N-1),p4=grid(5:N),deriv=.true.)
-  CALL init(xi_deriv(N-1),grid(N-1),p1=grid(N-3),p2=grid(N-2), p3=grid(N),deriv=.true.,RendZero=.true.)  
-  CALL init(xi_deriv(N),grid(N),p1=grid(N-2),p2=grid(N-1),RendZero=.true.,deriv=.true.)
-  CALL init(xi_deriv(N+1),grid(N),p2=grid(N-1),RendZero=.true.,deriv=.true.)
   xi_deriv = xi
   xi_deriv%deriv = .true.
+  phi_mod = phi
+  phi_mod%mod_lin = .true.
+  CALL linear_int_fac(phi_mod)
+  xi1 = xi(1)*xi(0)%C(1)/xi(1)%C(1)-xi(0)
+  xi1%deriv = .true.
+  xi0 = shift_spline(xi_deriv(2))
+  xi0 = xi_deriv(3)+xi0
+  !xi0%C=(/0.,0.,-3*xi0%dx(3),2./)
+  xi2 = xi(1)*xi(0)%C(2)/xi(1)%C(2)-xi(0)
+  xi2%deriv = .true.
+  xi3 = shift_spline(xi_deriv(0))
+  !write (0,*) xi3
+  xi3 = xi_deriv(2)*(2*xi3%B(2)-6*xi3%B(3)*xi3%xj)/(2*xi_deriv(2)%B(2)-6*xi_deriv(2)%B(3)*xi_deriv(2)%xj)-xi3
+  xi3%deriv = .true.
+  !write (0,*) xi1
+  !write (0,*) xi2
+  !write (0,*) xi3
+  !WRITE (0,'(4g)') xi(0)%C
+  !WRITE (0,'(4g)') xi(1)%A,xi(1)%B,xi(1)%C,xi(1)%D
+  !WRITE (0,'(4g)') xi1%A,xi1%B,xi1%C,xi1%D
+  !WRITE (0,'(4g)') xi2%A,xi2%B,xi2%C,xi2%D
+  !WRITE (0,'(4g)') xi3%A,xi3%B,xi3%C,xi3%D
   WRITE (*,*) val(xi(N-1),grid(N-4:N))
   CALL init(psi(1:N-1),grid(1:N-1),p3=grid(2:N))
   WRITE (*,*) 'grid = ', grid
   WRITE (*,*) phi%dx(2)
-  WRITE (*,*) linear_val(phi,grid-.2)  
+  !WRITE (*,*) linear_val(phi,grid-.2)  
   WRITE (*,*) constant_val(psi,grid(2:N)-.5)
   WRITE (*,'(a)') 'bspline value at left endpoint = '
   WRITE (*,'(g)') val(xi(2:4),grid(1))
@@ -118,28 +135,40 @@ PROGRAM test_finite_elements
   WRITE(*,*) 'val(xi_deriv(N),ar)=',val(xi_deriv(N),ar), 'val(xi(N+1),ar)=', val(xi(N+1),ar), 'val(xi_deriv(N+1),ar)=',val(xi_deriv(N+1),ar)
   
   OPEN (1, status='replace',file='finite_element_values.txt')
-  WRITE (1,'(22a20)') &
+  WRITE (1,'(31a20)') &
   & '#x value', 'Left constant', 'Right constant',&
   & 'Left Linear', 'Middle Linear', 'Right Linear',&
   & 'Left1 Bspline', 'Left2 Bspline', 'Left3 Bspline','RightN-1 Bspline',&
   & 'Left1 SplDeriv', 'Left2 SplDeriv', 'Left3 SplDeriv', 'RightN-1 SplDeriv',&
   & 'Left0 SplDeriv', 'Left0 Bspline', &
   & 'RightN-2 Bspline', 'RightN Bspline', 'RightN+1 Bspline', &
-  & 'RightN-2 SplDeriv', 'RightN SplDeriv', 'RightN+1 SplDeriv'
+  & 'RightN-2 SplDeriv', 'RightN SplDeriv', 'RightN+1 SplDeriv',&
+  & 'Left1 SplDeriv val0', 'Left1 SplDeriv drv0', &
+  & 'Left2 SplDeriv drv0', 'Left0 SplDeriv drv0', &
+  & 'Left0 mod_lin', 'Left1 mod_lin', &
+  & 'Left0 mod_lin_prime', 'Left1 mod_lin_prime', 'Left1 LinDerivBt/Bz'
   
   DO i=1,nx
-    WRITE (1,'(22g20.7)') &
+    WRITE (1,'(31g20.7)') &
     & x(i), val(psi(1),x(i)), val(psi(size(psi)),x(i)), &
-    & val(phi(1),x(i)), val(phi(2),x(i)), val(phi(size(phi)),x(i)), &
+    & val(phi(1),(/x(i)/)), val(phi(2),(/x(i)/)), val(phi(size(phi)),(/x(i)/)), &
     & val(xi(1),x(i)), val(xi(2),x(i)), val(xi(3),x(i)), val(xi(N-1), x(i)), &
     & val(xi_deriv(1),x(i)), val(xi_deriv(2),x(i)),  val(xi_deriv(3),x(i)), val(xi_deriv(N-1),x(i)), &
     & val(xi_deriv(0),x(i)), val(xi(0),x(i)), &
     & val(xi(N-2),x(i)), val(xi(N),x(i)), val(xi(N+1),x(i)), &
-    & val(xi_deriv(N-2),x(i)), val(xi_deriv(N),x(i)), val(xi_deriv(N+1),x(i))
+    & val(xi_deriv(N-2),x(i)), val(xi_deriv(N),x(i)), val(xi_deriv(N+1),x(i)), &
+    & val(xi1,x(i)), val(xi2,x(i)), val(xi3,x(i)), val(xi0,x(i)), &
+    & val(phi_mod(1),(/x(i)/)), val(phi_mod(2),(/x(i)/)),&
+    & val_prime(phi_mod(1),(/x(i)/)), val_prime(phi_mod(2),(/x(i)/)), val_prime(phi(2),(/x(i)/))*mod_lin_func((/x(i)/))
     
     
   ENDDO
   CLOSE(1)
+  verbose = .true.
+  epsilo = 1.e-4
+  WRITE (*,*) 'val(phi_mod(2),(/0,.01,.02,.03/)=',val(phi_mod(2),(/0.,.01,.02,.03/)), 'sum(val(phi_mod(2),(/0,.01,.02,.03/)))=',sum(val(phi_mod(2),(/0.,.01,.02,.03/)))
+  WRITE (*,*) 'int_func(phi_mod(2),phi_mod(2),x2)=',int_func(phi_mod(2),phi_mod(2),x2)
+  WRITE (*,*) 'int_func(phi(2),phi(2),x2)=',int_func(phi(2),phi(2),x2)
   STOP
   WRITE (*,*) int_func(psi(1),psi(1),f)
   WRITE (*,*) int_func(psi(1),psi(2),f)
