@@ -3,7 +3,7 @@ MODULE cyl_funcs_module
   IMPLICIT NONE
   REAL(r8), EXTERNAL :: s17aef, s17aff
   INTEGER :: mt, equilib, ifail  !m_theta, choice of equilibrium configuration, 
-  REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd, psi0 !ar is the radius of the plasma, br is the radius of the wall
+  REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
   REAL(r8) :: Vz0, epsVz, Vp0, epsVp
   REAL(r8) :: rs, alpha ! These are parameters for localizing the grid around rs
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
@@ -13,7 +13,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: kdotB
-    kdotB = mt*Bt(r)/sqrt(r/pi)+kz*Bz(r)
+    kdotB = mt*Bt(r)/r+kz*Bz(r)
   END FUNCTION kdotB
   FUNCTION alfven_range(r)
     IMPLICIT NONE
@@ -45,13 +45,13 @@ CONTAINS
       CASE(1)
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
       CASE(2,10)
-        rho = rho0 * (1-eps*(r/pi/ar**2))
+        rho = rho0 * (1-eps*(r**2/ar**2))
       CASE(3:4,6:9)
         rho = rho0
       CASE(5)
         rho = P(r)*rho0
       CASE(11)
-        rho = 1.+(rho0-1.)*r/pi
+        rho = 1.+(rho0-1.)*r**2
     ENDSELECT
     RETURN
   END FUNCTION rho
@@ -65,18 +65,18 @@ CONTAINS
         Bz = Bz0
       CASE(4)
         DO i=1,size(r)
-          Bz(i) = sqrt(1.-P1)* s17aef(lambd*sqrt(r(i)/pi),ifail)
+          Bz(i) = sqrt(1.-P1)* s17aef(lambd*r(i),ifail)
         ENDDO
       CASE(7)
-        Bz = sqrt(Bz0**2-2*p0*exp(-r/pi/ar**2))
+        Bz = sqrt(Bz0**2-2*p0*exp(-r**2/ar**2))
       CASE(8)
         Bz = 0
       CASE(9)
-        Bz = sqrt(2.0)*sqrt(Bt0**2*(2*ar**2-r/pi))/ar
+        Bz = sqrt(2.0)*sqrt(Bt0**2*(2*ar**2-r**2))/ar
       CASE(10)
-        Bz = sqrt((Bz0**2-2*p0+2*Bt0**2)*ar**2+2*(p0-Bt0**2)*r/pi)/ar
+        Bz = sqrt((Bz0**2-2*p0+2*Bt0**2)*ar**2+2*(p0-Bt0**2)*r**2)/ar
       CASE(11)
-        Bz = sqrt(2.0)*sqrt(0.1D1/gamma*P0)*(1.-Bz0*r/pi)
+        Bz = sqrt(2.0)*sqrt(0.1D1/gamma*P0)*(1.-Bz0*r**2)
     ENDSELECT
     RETURN
   END FUNCTION Bz
@@ -90,18 +90,18 @@ CONTAINS
         Bz_prime = 0
       CASE(4)
         DO i=1,size(r)
-          Bz_prime(i) = -sqrt(1.-P1)* s17aff(lambd*sqrt(r(i)/pi),ifail)*lambd/2./sqrt(r(i)*pi)
+          Bz_prime(i) = -sqrt(1.-P1)* s17aff(lambd*r(i),ifail)*lambd
         ENDDO
       CASE(7)
-        Bz_prime = -(Bz0**2-2*p0*exp(-r/pi/ar**2))**(-.5)*p0/&
-        & ar**2/pi*exp(-r/pi/ar**2)
+        Bz_prime = 2*(Bz0**2-2*p0*exp(-r**2/ar**2))**(-.5)*p0*r&
+        & /ar**2*exp(-r**2/ar**2)
       CASE(9)
-        Bz_prime = -sqrt(2.0)*(Bt0**2*(2*ar**2-r/pi))**(-.5)/ar*Bt0**2/pi/2.
+        Bz_prime = -sqrt(2.0)*(Bt0**2*(2*ar**2-r**2))**(-.5)/ar*Bt0**2*r
       CASE(10)
-        Bz_prime = (p0-Bt0**2)*(ar**2*(Bz0**2-2*p0+2*Bt0**2)+&
-        & 2*(p0-Bt0**2)*r/pi)**(-0.5)/ar/pi
+        Bz_prime = 2*r*(p0-Bt0**2)*(ar**2*Bz0**2-2*ar**2*p0+2*ar**2*Bt0**2+&
+        & 2*r**2*p0-2*r**2*Bt0**2)**(-0.5)/ar
       CASE(11)
-        Bz_prime = -sqrt(2.0)*sqrt(0.1D1/gamma*P0)*Bz0/pi
+        Bz_prime = -2*sqrt(2.0)*sqrt(0.1D1/gamma*P0)*Bz0*r
     ENDSELECT
     RETURN
   END FUNCTION Bz_prime
@@ -114,17 +114,17 @@ CONTAINS
       CASE(1:2,7)
         Bt = 0
       CASE(3,5,9,10)
-        Bt = Bt0/ar*sqrt(r/pi)
+        Bt = Bt0*r/ar
       CASE(4)
         DO i=1,size(r)
-          Bt(i) = s17aff(lambd*sqrt(r(i)/pi),ifail)
+          Bt(i) = s17aff(lambd*r(i),ifail)
         ENDDO
       CASE(6)
-        Bt = sqrt(P0*eps*r/pi)/ar
+        Bt = sqrt(P0*eps)*r/ar
       CASE(8)
-        Bt = 2*Bt0*sqrt(r/pi)/(r/pi+P0**2)
+        Bt = 2*Bt0*r/(r**2+P0**2)
       CASE(11)
-        Bt = Bt0*sqrt(r/pi)*(1.-lambd*r/pi/2.)/2.
+        Bt = Bt0*r*(1.-lambd*r**2/2.)/2.
     ENDSELECT
     RETURN
   END FUNCTION Bt
@@ -137,19 +137,19 @@ CONTAINS
       CASE(1:2)
         Bt_prime = 0
       CASE(3,5,9,10)
-        Bt_prime = Bt0/ar/sqrt(r*pi)/2.
+        Bt_prime = Bt0/ar
       CASE(4)
         DO i=1,size(r)
-          Bt_prime(i) = (s17aef(lambd*sqrt(r(i)/pi),ifail)-s17aff(lambd*sqrt(r(i)/pi),ifail)/(lambd*sqrt(r(i)/pi)))*lambd/(2*sqrt(pi*r(i)))
+          Bt_prime(i) = (s17aef(lambd*r(i),ifail)-s17aff(lambd*r(i),ifail)/(lambd*r(i)))*lambd
         ENDDO
       CASE(6)
-        Bt_prime = sqrt(P0*eps/pi/r)/ar/2
+        Bt_prime = sqrt(P0*eps)/ar
       CASE(7)
         Bt_prime = 0
       CASE(8)
-        Bt_prime = Bt0/(r/pi+P0**2)/sqrt(r*pi)-2.*Bt0*sqrt(r/pi)/pi/(r/pi+P0**2)**2
+        Bt_prime = 2.*Bt0/(r**2+P0**2)-4.*Bt0*r**2/(r**2+P0**2)**2
       CASE(11)
-        Bt_prime = Bt0*(1-lambd*r/pi/2.)/4./sqrt(r*pi)-sqrt(r/pi)*Bt0*lambd/4./pi
+        Bt_prime = Bt0*(1-lambd*r**2/2.)/2.-Bt0*r**2*lambd/2.
     ENDSELECT
     RETURN
   END FUNCTION Bt_prime
@@ -168,30 +168,30 @@ CONTAINS
       CASE(1:2)
         P = s2/gamma*Bz0**2  
       CASE(3,5)
-        P = Bt0**2*(1-r/pi/ar**2)
+        P = Bt0**2*(1-r**2/ar**2)
       CASE(4)
         DO i=1,size(r)
-          P(i) = P0+P1/2.*s17aef(lambd*sqrt(r(i)/pi),ifail)**2
+          P(i) = P0+P1/2.*s17aef(lambd*r(i),ifail)**2
         ENDDO
       CASE(6)
-        P = P0*(1-eps*r/pi/ar**2)
+        P = P0*(1-eps*r**2/ar**2)
       CASE(7)
-        P = P0*exp(-r/pi/ar**2)
+        P = P0*exp(-r**2/ar**2)
       CASE(8)
-        P = 2*Bt0**2*P0**2/(r/pi+P0**2)**2
+        P = 2*Bt0**2*P0**2/(r**2+P0**2)**2
       CASE(9)
         P = P0
       CASE(10)
-        P = P0*(1-r/pi/ar**2)
+        P = P0*(1-r**2/ar**2)
       CASE(11)
-        P = eps**2*(rho0-1)*(r/pi)**4/8&
-        & +0.2D1/0.7D1*epsVp*eps*(rho0-1)*(r/pi)**3.5&
-        & +(-Bt0**2*lambd**2/24+(2*Vp0*eps+epsVp**2)*(rho0-1)/6+eps**2/6)*(r/pi)**3&
-        & +(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*(r/pi)**2.5&
+        P = eps**2*(rho0-1)*r**8/8&
+        & +0.2D1/0.7D1*epsVp*eps*(rho0-1)*r**7&
+        & +(-Bt0**2*lambd**2/24+(2*Vp0*eps+epsVp**2)*(rho0-1)/6+eps**2/6)*r**6&
+        & +(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*r**5&
         & +(Vp0**2*(rho0-1)/4+Vp0*eps/2+epsVp**2/4&
-        & +0.3D1/0.16D2*Bt0**2*lambd-0.1D1/gamma*P0*Bz0**2)*(r/pi)**2&
-        & +0.2D1/0.3D1*Vp0*epsVp*(r/pi)**1.5&
-        & +(-Bt0**2/4+Vp0**2/2+2/gamma*P0*Bz0)*(r/pi)&
+        & +0.3D1/0.16D2*Bt0**2*lambd-0.1D1/gamma*P0*Bz0**2)*r**4&
+        & +0.2D1/0.3D1*Vp0*epsVp*r**3&
+        & +(-Bt0**2/4+Vp0**2/2+2/gamma*P0*Bz0)*r**2&
         & -0.1D1/gamma*P0+P1
     ENDSELECT
     RETURN
@@ -205,41 +205,41 @@ CONTAINS
       CASE(1:2)
         P_prime = 0  
       CASE(3,5)
-        P_prime = -Bt0**2/ar**2/pi
+        P_prime = -Bt0**2*(2*r/ar**2)
       CASE(4)
         DO i=1,size(r)
-          P_prime(i) = -P1*lambd*s17aef(lambd*sqrt(r(i)/pi),ifail)*s17aff(lambd*sqrt(r(i)/pi),ifail)/2./sqrt(pi*r(i))
+          P_prime(i) = -P1*lambd*s17aef(lambd*r(i),ifail)*s17aff(lambd*r(i),ifail)
         ENDDO
       CASE(6)
-        P_prime = P0*(-eps/pi/ar**2)
+        P_prime = P0*(-2*eps*r/ar**2)
       CASE(7)
-        P_prime = -P0*exp(-r/pi/ar**2)/ar**2/pi
+        P_prime = -2*P0*exp(-r**2/ar**2)*r/ar**2
       CASE(8)
-        P_prime = -4*Bt0**2*P0**2/(r/pi+P0**2)**3 /pi
+        P_prime = -8*Bt0**2*P0**2/(r**2+P0**2)**3 *r
       CASE(9)
         P_prime = 0
       CASE(10)
-        P_prime = -p0*r/ar**2/pi
+        P_prime = -2*p0*r/ar**2
       CASE(11)
-        P_prime = (eps**2*(rho0-1)*(r/pi)**3.5&
-        & +2*epsVp*eps*(rho0-1)*(r/pi)**3&
-        & +6*(-Bt0**2*lambd**2/24+(2*Vp0*eps+epsVp**2)*(rho0-1)/6+eps**2/6)*(r/pi)**2.5&
-        & +5*(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*(r/pi)**2&
-        & +4*(Vp0**2*(rho0-1)/4+Vp0*eps/2+epsVp**2/4+0.3D1/0.16D2*Bt0**2*lambd-0.1D1/Gamma*P0*Bz0**2)*(r/pi)**1.5&
-        & +2*Vp0*epsVp*r**2+2*(-Bt0**2/4+Vp0**2/2+2/Gamma*P0*Bz0)*sqrt(r/pi))/(2*sqrt(pi*r))
+        P_prime = eps**2*(rho0-1)*r**7&
+        & +2*epsVp*eps*(rho0-1)*r**6&
+        & +6*(-Bt0**2*lambd**2/24+(2*Vp0*eps+epsVp**2)*(rho0-1)/6+eps**2/6)*r**5&
+        & +5*(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*r**4&
+        & +4*(Vp0**2*(rho0-1)/4+Vp0*eps/2+epsVp**2/4+0.3D1/0.16D2*Bt0**2*lambd-0.1D1/Gamma*P0*Bz0**2)*r**3&
+        & +2*Vp0*epsVp*r**2+2*(-Bt0**2/4+Vp0**2/2+2/Gamma*P0*Bz0)*r
     ENDSELECT
     RETURN
   END FUNCTION P_prime
   FUNCTION q(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: q    
-    q = kz*sqrt(r/pi)*Bz(r)/Bt(r)
+    q = kz*r*Bz(r)/Bt(r)
     RETURN
   END FUNCTION q
   FUNCTION equilibrium(r)
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: equilibrium
-    equilibrium = P_prime(r) + Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+Bt(r)**2/r/2.
+    equilibrium = P_prime(r) + Bz(r)*Bz_prime(r)+Bt(r)*Bt_prime(r)+Bt(r)**2/r
   END FUNCTION equilibrium
   FUNCTION diff(func,r)
     REAL(r8), DIMENSION(:) :: r
@@ -262,11 +262,9 @@ CONTAINS
     REAL(r8), DIMENSION(:), INTENT(IN) :: grid
     REAL(r8), DIMENSION(size(grid)) :: new_grid
     INTEGER :: rs_ind, ng
-    ng = size(grid)   
-    psi0 = maxval(grid)!pi*ar**2-1e-14
+    ng = size(grid)    
     IF (rs.le.0 .or. rs.ge.ar ) THEN
       new_grid = grid
-      new_grid(1) = new_grid(2)/1000.0
       RETURN
     ENDIF
     rs_ind = minval(minloc(abs(grid-rs)))
@@ -279,7 +277,6 @@ CONTAINS
     IF (rs.ne.ar) THEN
       new_grid(rs_ind+1:) = (ar-rs)*((grid(rs_ind+1:)-rs)/(ar-rs))**alpha+rs
     ENDIF
-    new_grid(1) = new_grid(2)/1000.0
     write(*,*) 'new_grid = ', new_grid
     RETURN    
   END FUNCTION new_grid

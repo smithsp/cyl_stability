@@ -77,8 +77,8 @@ CONTAINS
     TYPE(linear), DIMENSION(:) :: this
     INTEGER :: i
     DO i=1,size(this)
-      this(i)%int_fac(1) = int_func(mod_lin_func,this(i)%xj-this(i)%dx(1),this(i)%xj)
-      this(i)%int_fac(2) = int_func(mod_lin_func,this(i)%xj,this(i)%xj+this(i)%dx(2))
+      this(i)%int_fac(1) = int_mod_lin_func(this(i)%xj)-int_mod_lin_func(this(i)%xj-this(i)%dx(1))
+      this(i)%int_fac(2) = int_mod_lin_func(this(i)%xj+this(i)%dx(2))-int_mod_lin_func(this(i)%xj)
     ENDDO
   END SUBROUTINE linear_int_fac
   FUNCTION linear_val(this,x)
@@ -102,10 +102,10 @@ CONTAINS
         ENDIF
       ELSE
         IF    ( (x1(i)>-this%dx(1)).and.(x1(i)<0) ) THEN
-          linear_val(i) = (int_mod_lin_func(x(i))-int_mod_lin_func(this%xj-this%dx(1)))/(int_mod_lin_func(this%xj)-int_mod_lin_func(this%xj-this%dx(1)))
+          linear_val(i) = (int_mod_lin_func(x(i))-int_mod_lin_func(this%xj-this%dx(1)))/this%int_fac(1)
           !int_func(mod_lin_func,this%xj-this%dx(1),x(i))/this%int_fac(1)
         ELSEIF( (x1(i)>0).and.(x1(i)< this%dx(2)) ) THEN
-          linear_val(i) = (int_mod_lin_func(this%xj+this%dx(2))-int_mod_lin_func(x(i)))/(int_mod_lin_func(this%xj+this%dx(2))-int_mod_lin_func(this%xj))
+          linear_val(i) = (int_mod_lin_func(this%xj+this%dx(2))-int_mod_lin_func(x(i)))/this%int_fac(2)
           !int_func(mod_lin_func,x(i),this%xj+this%dx(2))/this%int_fac(2)
         ELSEIF ( (x1(i)==0) ) THEN
           linear_val(i) = 1.
@@ -127,7 +127,7 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: mod_lin_func
-    mod_lin_func = Bt(r)*sqrt(r)/Bz(r)
+    mod_lin_func = Bt(r)*(r)/Bz(r)
   END FUNCTION mod_lin_func
   FUNCTION int_mod_lin_func(r)
     IMPLICIT NONE
@@ -137,10 +137,14 @@ CONTAINS
       CASE(1:2,4:9,11)
         int_mod_lin_func = 0
       CASE(3)
-        int_mod_lin_func = r**2*Bt0/Bz0/2/sqrt(psi0)
+        int_mod_lin_func = r**3*Bt0/Bz0/3./ar
       CASE(10)
-        int_mod_lin_func = -1./3.*Bt0*(2*Bt0**2*psi0+Bt0**2*r-2*p0*psi0+psi0*Bz0**2-p0*r)*&
-        & sqrt(psi0*Bz0**2-2*p0*psi0+2*p0*r+2*Bt0**2*psi0-2*Bt0**2*r)/(-p0+Bt0**2)**2
+        int_mod_lin_func = &
+        & Bt0/4.*ar**2*(Bz0**2+2*(Bt0**2-p0))/(Bt0**2-p0)/sqrt(2*(Bt0**2-p0))*&
+        &   atan(sqrt(2*(Bt0**2-p0))*r/&
+        &     sqrt(ar**2*(Bz0**2+2*(Bt0**2-p0))+2*r**2*(p0-Bt0**2))) &
+        &+Bt0*r/4./(p0-Bt0**2)*&
+        &   sqrt(2*r**2*(p0-Bt0**2)+ar**2*(Bz0**2+2*(Bt0**2-p0)))
     ENDSELECT
     
   END FUNCTION int_mod_lin_func
@@ -160,7 +164,13 @@ CONTAINS
         ELSEIF( (x1(i)>0).and.(x1(i)<=this%dx(2)) ) THEN
           linear_val_prime(i) = -1./this%dx(2)
         ELSEIF ( (x1(i)==0) ) THEN
-          linear_val_prime(i) = 0 !or should this be 1/2*(1/d1-1/d2)
+          IF (minval(x1)<0) THEN
+            linear_val_prime(i) = 1./this%dx(1)
+          ELSEIF (maxval(x1)>0) THEN
+            linear_val_prime(i) = -1./this%dx(2)
+          ELSE
+            linear_val_prime(i) = 0.
+          ENDIF
         ELSE      
           linear_val_prime(i) = 0.
         ENDIF
@@ -170,7 +180,13 @@ CONTAINS
         ELSEIF( (x1(i)>0).and.(x1(i)<=this%dx(2)) ) THEN
           linear_val_prime(i) = -minval(mod_lin_func((/x(i)/)))/this%int_fac(2)
         ELSEIF ( (x1(i)==0) ) THEN
-          linear_val_prime(i) = 0 !or should this be 1/2*(1/d1-1/d2)
+          IF (minval(x1)<0) THEN
+            linear_val_prime(i) = minval(mod_lin_func((/x(i)/)))/this%int_fac(1)
+          ELSEIF (maxval(x1)>0) THEN
+            linear_val_prime(i) = -minval(mod_lin_func((/x(i)/)))/this%int_fac(2)
+          ELSE
+            linear_val_prime(i) = 0.
+          ENDIF
         ELSE      
           linear_val_prime(i) = 0.
         ENDIF

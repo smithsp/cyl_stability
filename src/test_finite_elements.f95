@@ -36,7 +36,7 @@ PROGRAM test_finite_elements
   Bt0 = 1.
   Bz0 = 15
   equilib=10
-  grid = (/ (i*pi*ar**2/real(N-1), i=0,N-1) /)
+  grid = (/ (i*ar/real(N-1), i=0,N-1) /)
   grid = new_grid(grid)
   grid(1) = grid(2)/1000.0
   alpha = 1.0
@@ -164,8 +164,14 @@ PROGRAM test_finite_elements
     
   ENDDO
   CLOSE(1)
+  epsilo = 1.e-14
+  DO i=1,size(phi_mod)
+    WRITE (*,*) phi_mod(i)%int_fac(1),'=',(int_mod_lin_func(phi_mod(i)%xj)-int_mod_lin_func(phi_mod(i)%xj-phi_mod(i)%dx(1)))
+  ENDDO
+  
+  WRITE (0,*) (val_prime(phi_mod(N),(/ar/))),(val_prime(phi_mod(N-1),(/0.,ar/))),ar-phi_mod(N-1)%xj,phi_mod(N-1)%dx(2),ar-phi_mod(N)%xj
+  
   verbose = .true.
-  epsilo = 1.e-4
   WRITE (*,*) 'val(phi_mod(2),(/0,.01,.02,.03/)=',val(phi_mod(2),(/0.,.01,.02,.03/)), 'sum(val(phi_mod(2),(/0,.01,.02,.03/)))=',sum(val(phi_mod(2),(/0.,.01,.02,.03/)))
   WRITE (*,*) 'int_func(phi_mod(2),phi_mod(2),x2)=',int_func(phi_mod(2),phi_mod(2),x2)
   WRITE (*,*) 'int_func(phi(2),phi(2),x2)=',int_func(phi(2),phi(2),x2)

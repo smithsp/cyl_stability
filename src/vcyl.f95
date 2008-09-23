@@ -38,6 +38,10 @@ PROGRAM cyl
     OPEN(1,file=filename,status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
+    IF (br.ge.(1.e5*ar)) THEN
+      tw=0
+      br=1.e5*ar
+    ENDIF
     OPEN(1,file=filename,status='replace',form='formatted')
     WRITE(1,nml=cyl_params)
     CLOSE(1)
@@ -67,6 +71,10 @@ PROGRAM cyl
     OPEN(1,file=filename,status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
+    IF (br.ge.(1.e5*ar)) THEN
+      tw=0
+      br=1.e5
+    ENDIF
     OPEN(1,file=filename,status='replace',form='formatted')
     WRITE(1,nml=cyl_params)
     CLOSE(1)
@@ -115,7 +123,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
   !Initialize the finite elements
     lower(1:3) = (/lbound(phi,1), lbound(psi,1), lbound(chi,1)/)
     upper(1:3) = (/ubound(phi,1), ubound(psi,1), ubound(chi,1)/)
-    grid = (/ (i*pi*ar**2/(N-1), i=0,N-1) /)
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
     nphi =  size(phi); npsi = size(psi); nchi = size(chi)
 
     CALL init(phi(1),grid(1),p3=grid(2))
@@ -248,7 +256,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     lower(1:3) = (/lbound(phi,1), lbound(psi,1), lbound(chi,1)/)
     upper(1:3) = (/ubound(phi,1), ubound(psi,1), ubound(chi,1)/) 
 
-    grid = (/ (i*pi*ar**2/(N-1), i=0,N-1) /)
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
     nphi =  size(phi); npsi = size(psi); nchi = size(chi)
     IF (lower(1).eq.0) THEN
@@ -377,6 +385,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     TYPE(constant), DIMENSION(:), ALLOCATABLE :: phi3, phi6
     REAL(r8), DIMENSION(:,:), ALLOCATABLE :: A, B, C, D, VR, VL
     REAL(r8), DIMENSION(:), ALLOCATABLE :: ALPHAR, ALPHAI, BETA, RWORK, WORK
+    REAL(r8) :: xi1pNa, xi2pNa, xi1Na, xi2Na, xi3Na,xi1pN1a,xi2pN1a
     INTEGER :: lower1, upper1
     WRITE (*,*) '************Using linear_const**************'
     vcyl = .true.
@@ -397,7 +406,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHAI(NN),ALPHAR(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
     LDVR = NN
   ! Initialize the grid
-    grid = (/ (i*pi*ar**2/(N-1), i=0,N-1) /)
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
   ! Set the arrays containing the lower and upper bounds
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
@@ -423,8 +432,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     phi6 = phi3
     IF (verbose) THEN
       WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
-      WRITE (*,'(a,g)') 'BCB1=',BCB1((/psi0/)),'BCB1nw=',BCB1nw((/psi0/)),'BCB1cw=',BCB1cw((/psi0/))
-      WRITE (*,'(a,g)') 'psi0=',psi0,'val(phi1(N),psi0)=',val(phi1(N),(/psi0/)), 'phi1(N)%xj-psi0=',phi1(N)%xj-psi0
+      WRITE (*,'(a,g)') 'BCB1=',BCB1((/ar/)),'BCB1nw=',BCB1nw((/ar/)),'BCB1cw=',BCB1cw((/ar/))
+      WRITE (*,'(a,g)') 'a=',ar,'val(phi1(N),a)=',val(phi1(N),(/ar/)), 'phi1(N)%xj-a=',phi1(N)%xj-ar
     ENDIF
   ! Set some format specifiers for outputting matrices
     WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
@@ -618,49 +627,99 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDDO
     ! This is for a wall not at the plasma surface
     IF (br.gt.ar) THEN
-      ! These are the extra terms after integrating by parts, replaced by boundary conditions
+      xi1Na = 1.
+      xi1pNa = minval(mod_lin_func((/ar/)))/phi1(N)%int_fac(1)
+      xi1pN1a = -minval(mod_lin_func((/ar/)))/phi1(N-1)%int_fac(2)
+      xi2Na = 1.
+      xi2pNa = 1./phi2(N)%dx(1)
+      xi2pN1a = -1./phi2(N-1)%dx(2)
+      xi3Na = 1
+      
+      ! These are the extra terms after integrating by parts, some replaced by boundary conditions
+      k = 2
+      m = k+3
+      i = N
+        l = 1
+        j = N
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB24a*xi1Na
+        l = 2
+        j = N-1
+          C(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCA25aa*xi2pN1a
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB25aa*xi2pN1a
+        j = N
+          C(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCA25aa*xi2pNa
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB25aa*xi2pNa+BCB25ac*xi2Na
+        l = 5
+        j = N-1
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCA25aa*xi2pN1a
+        j = N
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCA25aa*xi2pNa
       k = 4
       m = k-3
-      DO i=lower(m),upper(m)
+      !DO i=lower(m),upper(m)
+      i = N
         l = 1
-        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        !DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (BCB11a+BCB11nw)*xi1Na!minval(val(phi1(i),(/ar/))*(BCB11a+BCB11nw)*val(phi1(j),(/ar/)))
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (BCB11a+BCB11cw)*xi1Na
           ENDIF
-        ENDDO
+        !ENDDO
         l = 2
-        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        !DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*(BCB11a+BCB11nw)*xi2Na
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*(BCB11a+BCB11cw)*xi2Na
           ENDIF
-        ENDDO
-      ENDDO
+        !ENDDO
+      !ENDDO
       k = 5
       m = k-3
-      DO i=lower(m),upper(m)
+      !DO i=lower(m),upper(m)
+      i = N
         l = 1
-        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        !DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        j = N-1
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB21aa*xi1pN1a
+        j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt*(BCB11a+BCB11nw)+BCB21ac)*xi1Na+BCB21aa*xi1pNa
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt*(BCB11a+BCB11cw)+BCB21ac)*xi1Na+BCB21aa*xi1pNa
           ENDIF
-        ENDDO
+        !ENDDO
         l = 2
-        DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        !DO j=max(i-3,lower(l)),min(i+3,upper(l))
+        j = N-1
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB22aa*xi2pN1a
+        j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt**2*(BCB11a+BCB11nw)+BCB22ac)*xi2Na+BCB22aa*xi2pNa
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt**2*(BCB11a+BCB11cw)+BCB22ac)*xi2Na+BCB22aa*xi2pNa
           ENDIF
-        ENDDO
-      ENDDO
+        !ENDDO
+        l = 3
+        j = N
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB23a*xi3Na
+        l = 4
+        j = N
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB24a*xi1Na
+        l = 5
+        j = N-1
+          C(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCA25aa*xi2pN1a
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB25aa*xi2pN1a
+        j = N
+          C(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCA25aa*xi2pNa
+          D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB25ac*xi2Na+BCB25aa*xi2pNa
+      !ENDDO
     ENDIF
     B=B+D !Sign?
+    A=A+C
   ! This is to account for regularity at the center
     !IF (mt.ne.1) THEN
       IF (lower(1).le.1) THEN
@@ -729,11 +788,14 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE (1,*) 'B='
       WRITE (1,FMT) transpose(B)
       CLOSE(1)
+      OPEN(1,status='replace',file='C.txt')
+      WRITE (1,*) 'C='
+      WRITE (1,FMT) transpose(C)
+      CLOSE(1)
       OPEN(1,status='replace',file='D.txt')
       WRITE (1,*) 'D='
       WRITE (1,FMT) transpose(D)
       CLOSE(1)
-      WRITE(0,*) 'Alvfen range=',alfven_range(grid)
     ENDIF
     C=A(:,:)
     D=B(:,:)
@@ -787,7 +849,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(LWORK))
     LDVR = NN
   ! Initialize the grid
-    grid = (/ (i*pi*ar**2/(N-1), i=0,N-1) /)
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
   ! Set the arrays containing the lower and upper bounds
     lower = (/lbound(phi1,1), lbound(phi2,1), lbound(phi3,1), lbound(phi4,1), lbound(phi5,1), lbound(phi6,1), lbound(phi1,1), lbound(phi2,1), lbound(phi3,1)/)
@@ -813,8 +875,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     phi6 = phi3
     IF (verbose) THEN
       WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
-      WRITE (*,'(a,g)') 'BCB1=',BCB1((/psi0/)),'BCB1nw=',BCB1nw((/psi0/)),'BCB1cw=',BCB1cw((/psi0/))
-      WRITE (*,'(a,g)') 'psi0=',psi0,'val(phi1(N),psi0)=',val(phi1(N),(/psi0/)), 'phi1(N)%xj-psi0=',phi1(N)%xj-psi0
+      WRITE (*,'(a,g)') 'BCB1=',BCB1((/ar/)),'BCB1nw=',BCB1nw((/ar/)),'BCB1cw=',BCB1cw((/ar/))
+      WRITE (*,'(a,g)') 'a=',ar,'val(phi1(N),a)=',val(phi1(N),(/ar/)), 'phi1(N)%xj-a=',phi1(N)%xj-ar
       write (*,'(a,g)') 'NN=',NN
     ENDIF
   ! Set some format specifiers for outputting matrices
@@ -1016,27 +1078,27 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         l = 1
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi1(j),(/ar/)))
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/ar/))*(BCB1((/ar/))+BCB1cw((/ar/)))*val(phi1(j),(/ar/)))
           ELSE! This is for a resistive wall
             ! This is for unknown C2
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  minval(val(phi1(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi1(j),(/ar/)))
           ENDIF
         ENDDO
         l = 2
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi2(j),(/ar/)))
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/ar/))*(BCB1((/ar/))+BCB1cw((/ar/)))*val(phi2(j),(/ar/)))
           ELSE! This is for a resistive wall
             ! This is for unknown C2
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi1(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi2(j),(/ar/)))
           ENDIF
         ENDDO
       ! This is for unknown C2
-        D(6*(i-lower(m))+k,NN) = cmplx(0,1,r8)*minval(val(phi1(i),(/psi0/))*(mt*Bt((/psi0/))+kz*ar*Bz((/psi0/))))*(La*Kadot-Ladot*Ka)/Kadot
+        D(6*(i-lower(m))+k,NN) = cmplx(0,1,r8)*minval(val(phi1(i),(/ar/))*(mt*Bt((/ar/))+kz*ar*Bz((/ar/))))*(La*Kadot-Ladot*Ka)/Kadot
       ENDDO
       k = 5
       m = k-3
@@ -1044,40 +1106,40 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         l = 1
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi1(j),(/ar/)))
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/ar/))*(BCB1((/ar/))+BCB1cw((/ar/)))*val(phi1(j),(/ar/)))
           ELSE! This is for a resistive wall
             ! This is for unknown C2
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi1(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt*minval(val(phi2(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi1(j),(/ar/)))
           ENDIF
         ENDDO
         l = 2
         DO j=max(i-3,lower(l)),min(i+3,upper(l))
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi2(j),(/ar/)))
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1cw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/ar/))*(BCB1((/ar/))+BCB1cw((/ar/)))*val(phi2(j),(/ar/)))
           ELSE! This is for a resistive wall
             ! This is for unknown C2
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/psi0/))*(BCB1((/psi0/))+BCB1nw((/psi0/)))*val(phi2(j),(/psi0/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  mt**2*minval(val(phi2(i),(/ar/))*(BCB1((/ar/))+BCB1nw((/ar/)))*val(phi2(j),(/ar/)))
           ENDIF
         ENDDO
       ! This is for unknown C2
-        D(6*(i-lower(m))+k,NN) = mt*cmplx(0,1,r8)*minval(val(phi2(i),(/psi0/))*(mt*Bt((/psi0/))+kz*ar*Bz((/psi0/))))*(La*Kadot-Ladot*Ka)/Kadot/ar
+        D(6*(i-lower(m))+k,NN) = mt*cmplx(0,1,r8)*minval(val(phi2(i),(/ar/))*(mt*Bt((/ar/))+kz*ar*Bz((/ar/))))*(La*Kadot-Ladot*Ka)/Kadot/ar
       ENDDO
     ENDIF
     l=1
     ! This is for unknown C2
     DO j=lower(l),upper(l)
-      C(NN,6*(j-lower(l))+l) = br*Kbdot*minval((mt*Bt((/psi0/))+kz*ar*Bz((/psi0/)))*val(phi1(j),(/psi0/)))&
+      C(NN,6*(j-lower(l))+l) = br*Kbdot*minval((mt*Bt((/ar/))+kz*ar*Bz((/ar/)))*val(phi1(j),(/ar/)))&
       & /ar**2/(mt**2+kz**2*br**2)/Kadot
       D(NN,6*(j-lower(l))+l) = 0
     ENDDO
     l=2
     ! This is for unknown C2
     DO j=lower(l),upper(l)
-      C(NN,6*(j-lower(l))+l) = mt*br*Kbdot*minval((mt*Bt((/psi0/))+kz*ar*Bz((/psi0/)))*val(phi2(j),(/psi0/)))&
+      C(NN,6*(j-lower(l))+l) = mt*br*Kbdot*minval((mt*Bt((/ar/))+kz*ar*Bz((/ar/)))*val(phi2(j),(/ar/)))&
       & /ar**2/(mt**2+kz**2*br**2)/Kadot
       D(NN,6*(j-lower(l))+l) = 0
     ENDDO
@@ -1236,7 +1298,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHAI(NN),ALPHAR(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
     LDVR = NN
     
-    grid = (/ (i*pi*ar**2/(N-1), i=0,N-1) /)
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
     grid(1) = grid(2)/100.0
   !Initialize the finite elements
@@ -1614,7 +1676,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     LDVR = NN
 
   ! Initialize the grid
-    grid = (/ (i*pi*ar**2/(N-1), i=0,N-1) /)
+    grid = (/ (i*ar/(N-1), i=0,N-1) /)
     grid = new_grid(grid)
     grid(1) = grid(2)/1000.0
   
@@ -1946,7 +2008,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     INTEGER :: i
     REAL(r8), DIMENSION(N) :: grid, pressure, zb, tb, density, pv, zv, safety, pp, bzp, btp
     num_pts = N
-    grid = (/ (i*pi*ar**2/real(num_pts-1), i=0,num_pts-1) /)
+    grid = (/ (i*ar/real(num_pts-1), i=0,num_pts-1) /)
     pressure = P(grid)
     tb = Bt(grid)
     zb = Bz(grid)
