@@ -79,29 +79,24 @@ CONTAINS
     BCB11cw = minval(-(mt*Bt(a)/a+kz*Bz(a))**2*(Kbdot*La-Lbdot*Ka)/&
       & (a*kz*(Ladot*Kbdot-Kadot*Lbdot)))
     ! The form of the boundary terms of the 5th row is
-    ! phi_2i(a)*{mt*[(BCB11nw+BCB11a)*xi1(a)+(BCB11nw+BCB11a)*mt*xi2(a)]+BCB21ac*xi1(a)+BCB21aa*xi1'(a)+BCB22ac*xi2(a)+BCB22aa*xi2'(a)+BCB23a*xi3(a)+
-    !            BCB24a*u1(a)+BCB25aa*u2(a)+BCB25ac*u2'(a)} or
-    ! phi_2i(a)*{mt*[(BCB11cw+BCB11a)*xi1(a)+(BCB11cw+BCB11a)*mt*xi2(a)]+BCB21ac*xi1(a)+BCB21aa*xi1'(a)+BCB22ac*xi2(a)+BCB22aa*xi2'(a)+BCB23a*xi3(a)+
+    ! phi_2i(a)*{BCB21ac*xi1(a)+BCB21aa*xi1'(a)+BCB22ac*xi2(a)+BCB22aa*xi2'(a)+BCB23a*xi3(a)+
     !            BCB24a*u1(a)+BCB25aa*u2(a)+BCB25ac*u2'(a)} 
     ! The form of the boundary terms of the 2nd row is
     ! phi_5i(a)*{BCB24a*xi1(a)+BCB25ac*xi2(a)+BCB25aa*xi2'(a)+BCA25a*u2'(a)}
     BCA25aa = minval(-rho(a)*Bmag(a)**2/Bz(a)**2*a)
     !This is for xi1
-    BCB21ac = minval((mt/a-kz*Bt(a)/Bz(a))*(rho(a)*Vp(a)**2)+&
-      & 2*kz*Bt(a)/Bz(a)*Bmag(a)**2/a**2)*ar
+    BCB21ac = minval(mt/a*(a*rho(a)*Vp(a)**2+Bt(a)**2/a)+kz*Bt(a)/Bz(a)*(2*Bmag(a)**2/a-a*rho(a)*Vp(a)**2))
     !This is for xi1_prime
-    BCB21aa = minval((mt/a-kz*Bt(a)/Bz(a))*(Bmag(a)**2+gamma*p(a))/a)*ar
+    BCB21aa = minval(-kz*Bt(a)/Bz(a)*(Bmag(a)**2+gamma*p(a)))
     !This is for xi2
     BCB22ac = mt*BCB21ac
     !This is for xi2_prime
-    BCB22aa = minval((mt/a-kz*Bt(a)/Bz(a))*(Bmag(a)**2/a*mt+&
-      & gamma*p(a)*kz*Bt(a)/Bz(a))-&
-      & rho(a)*Vp(a)**2-Bmag(a)**4/Bz(a)**2*(mt**2/a**2+kz**2))*ar
-    BCB23a = minval(-gamma*p(a)*(mt*Bt(a)/a+kz*Bz(a))-Bt(a)*rho(a)*Vp(a)**2)*ar
+    BCB22aa = minval(-a*Bmag(a)**2*(kz+mt/a*Bt(a)/Bz(a))**2-kz**2*Bt(a)**2/Bz(a)**2*a*(gamma*p(a)+Bmag(a)**2)-a*rho(a)*Vp(a)**2)
+    BCB23a = minval(-gamma*p(a)*a*(mt*Bt(a)/a+kz*Bz(a))*kz*Bt(a)/Bz(a)-Bt(a)*rho(a)*Vp(a)**2*a)
     BCB24a = minval(rho(a)*Vp(a))*ar
     !This is for u2_prime
     BCB25aa = minval(-rho(a)*Bmag(a)**2/Bz(a)**2*kV(a))*ar
     !This is for u2
-    BCB25ac = minval(rho(a)*Vp(a)*mt)*ar
+    BCB25ac = mt*BCB24a
   END SUBROUTINE init_bc
 END MODULE vcyl_funcs_module
