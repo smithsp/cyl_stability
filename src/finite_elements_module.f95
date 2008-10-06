@@ -921,6 +921,7 @@ CONTAINS
     REAL(r8) :: error , r_int, error2, inte, h_k
     REAL(r8), DIMENSION(:), ALLOCATABLE :: tempa
     !
+    CALL cpu_time(it1)
     a = maxval((/const1%xj,const2%xj/))
     b = minval((/const1%xj+const1%dx,const2%xj+const2%dx/))
     a = a + b*epsilon(b)
@@ -967,6 +968,8 @@ CONTAINS
       ENDIF
       int_constant_constant_func = r_int
     ENDIF
+    CALL cpu_time(it2)
+    it = it+it2-it1
   END FUNCTION int_constant_constant_func
   FUNCTION int_func(func,a,b)
     IMPLICIT NONE
@@ -985,6 +988,7 @@ CONTAINS
     REAL(r8) :: error , r_int, error2, inte, h_k
     REAL(r8), DIMENSION(:), ALLOCATABLE :: tempa
     !
+    CALL cpu_time(it1)
     IF (b<=a) THEN 
       int_func = 0.
     ELSE
@@ -1028,6 +1032,8 @@ CONTAINS
       ENDIF
       int_func = r_int
     ENDIF
+    CALL cpu_time(it2)
+    it = it+it2-it1
   END FUNCTION int_func
   
   FUNCTION int_constant_linear_func(const1,lin1,func,deriv2)
@@ -1051,6 +1057,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: deriv2
     LOGICAL :: prime
     !
+    CALL cpu_time(it1)
     a = maxval((/const1%xj,lin1%xj-lin1%extent(1)*lin1%dx(1)/))
     b = minval((/const1%xj+const1%dx,lin1%xj+lin1%extent(2)*lin1%dx(2)/))
     a = a + b*epsilon(b)
@@ -1108,6 +1115,8 @@ CONTAINS
           &' prime = ', prime
       ENDIF
     ENDIF
+    CALL cpu_time(it2)
+    it = it+it2-it1
   END FUNCTION int_constant_linear_func
   
   FUNCTION int_linear_linear_func(lin1,lin2,func,deriv1,deriv2)
@@ -1129,6 +1138,7 @@ CONTAINS
     REAL(r8), DIMENSION(:), ALLOCATABLE :: tempa
     LOGICAL, OPTIONAL, INTENT(IN) :: deriv1, deriv2
     LOGICAL :: prime1, prime2
+    CALL cpu_time(it1)
     DO ind=1,2
       temp_int(ind) = 0.
       !IF (lin2%xj == lin1%xj) THEN  
@@ -1191,7 +1201,7 @@ CONTAINS
               IF (size(tempa)==1) tempa=tempa+tempa*epsilon(tempa(1))
               inte = 0.5 * (inte + h_k*2.*sum(func(tempa)*linear_val_prime(lin1,tempa)*linear_val_prime(lin2,tempa)))
             ELSE
-              inte = 0.5 *(inte + h_k*2.*sum(func(tempa)*linear_val(lin1,tempa)*linear_val(lin2,tempa)*tempa))
+              inte = 0.5 *(inte + h_k*2.*sum(func(tempa)*linear_val(lin1,tempa)*linear_val(lin2,tempa)))
             ENDIF
           ENDIF
           DEALLOCATE(tempa)
@@ -1238,5 +1248,7 @@ CONTAINS
       !WRITE (*,*) 'temp_int(',ind,') = ', temp_int(ind), 'lin1%xj = ', lin1%xj, 'lin2%xj = ', lin2%xj
     ENDDO
     int_linear_linear_func = sum(temp_int)!/real(size(temp_int))
+    CALL cpu_time(it2)
+    it = it+it2-it1
   END FUNCTION int_linear_linear_func
 END MODULE finite_elements_module

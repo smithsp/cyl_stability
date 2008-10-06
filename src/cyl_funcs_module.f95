@@ -277,6 +277,7 @@ CONTAINS
     IF (rs.ne.ar) THEN
       new_grid(rs_ind+1:) = (ar-rs)*((grid(rs_ind+1:)-rs)/(ar-rs))**alpha+rs
     ENDIF
+    new_grid(1) = new_grid(2)/1000.0
     write(*,*) 'new_grid = ', new_grid
     RETURN    
   END FUNCTION new_grid

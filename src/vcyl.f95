@@ -38,9 +38,9 @@ PROGRAM cyl
     OPEN(1,file=filename,status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
-    IF (br.ge.(1.e5*ar)) THEN
+    IF (br.ge.(1.e4)) THEN
       tw=0
-      br=1.e5*ar
+      br=1.e4
     ENDIF
     OPEN(1,file=filename,status='replace',form='formatted')
     WRITE(1,nml=cyl_params)
@@ -71,9 +71,9 @@ PROGRAM cyl
     OPEN(1,file=filename,status='old',form='formatted')
     READ(1,nml=cyl_params)
     CLOSE(1)
-    IF (br.ge.(1.e5*ar)) THEN
+    IF (br.ge.(1.e4)) THEN
       tw=0
-      br=1.e5
+      br=1.e4
     ENDIF
     OPEN(1,file=filename,status='replace',form='formatted')
     WRITE(1,nml=cyl_params)
@@ -441,7 +441,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     
     CALL cpu_time(at1)
   !Initialize the matrices and vectors needed for the eigenvalue/eigenvector solver
-    A = 0.;    B = 0.
+    A = 0.;    B = 0.;    C = 0.;    D = 0.
   !k is the row of the submatrix
     k = 1
     m = k+3
@@ -627,14 +627,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     ENDDO
     ! This is for a wall not at the plasma surface
     IF (br.gt.ar) THEN
-      C = 0.;    D = 0.
       xi1Na = 1.
       xi1pNa = minval(mod_lin_func((/ar/)))/phi1(N)%int_fac(1)*0.
       xi1pN1a = -minval(mod_lin_func((/ar/)))/phi1(N-1)%int_fac(2)*0.
       xi2Na = 1.
       xi2pNa = 1./phi2(N)%dx(1)*0.
       xi2pN1a = -1./phi2(N-1)%dx(2)*0.
-      xi3Na = 1.
+      xi3Na = 1.*0.
       
       ! These are the extra terms after integrating by parts, some replaced by boundary conditions
       k = 2
@@ -663,7 +662,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
         !DO j=max(i-3,lower(l)),min(i+3,upper(l))
         j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (BCB11a+BCB11nw)*xi1Na!minval(val(phi1(i),(/ar/))*(BCB11a+BCB11nw)*val(phi1(j),(/ar/)))
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (BCB11a+BCB11nw)*xi1Na
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
             D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (BCB11a+BCB11cw)*xi1Na
           ENDIF
@@ -688,9 +687,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
           D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB21aa*xi1pN1a
         j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt*(BCB11a+BCB11nw)*0.+BCB21ac)*xi1Na+BCB21aa*xi1pNa
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt*(BCB11a+BCB11nw)+BCB21ac)*xi1Na+BCB21aa*xi1pNa
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt*(BCB11a+BCB11cw)*0.+BCB21ac)*xi1Na+BCB21aa*xi1pNa
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt*(BCB11a+BCB11cw)+BCB21ac)*xi1Na+BCB21aa*xi1pNa
           ENDIF
         !ENDDO
         l = 2
@@ -699,9 +698,9 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
           D(6*(i-lower(m))+k,6*(j-lower(l))+l) = BCB22aa*xi2pN1a
         j = N
           IF (br.gt.1000.0.or.tw.eq.0) THEN ! This for no wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt**2*(BCB11a+BCB11nw)*0.+BCB22ac)*xi2Na+BCB22aa*xi2pNa
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt**2*(BCB11a+BCB11nw)+BCB22ac)*xi2Na+BCB22aa*xi2pNa
           ELSE IF (tw.lt.0) THEN ! This is for a conducting wall
-            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt**2*(BCB11a+BCB11cw)*0.+BCB22ac)*xi2Na+BCB22aa*xi2pNa
+            D(6*(i-lower(m))+k,6*(j-lower(l))+l) =  (mt**2*(BCB11a+BCB11cw)+BCB22ac)*xi2Na+BCB22aa*xi2pNa
           ENDIF
         !ENDDO
         l = 3
