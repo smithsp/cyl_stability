@@ -15,6 +15,8 @@ CONTAINS
         Vz = Vz0*(1-epsVz*r**2/ar**2)
       CASE(11)
         Vz = 0
+      CASE(12)
+        Vz =  Vp0/Bt0*sqrt(ar**2*(Bz0**2-2.*P0+2.*Bt0**2)+2.*r**2*(P0-Bt0**2))
     ENDSELECT
   END FUNCTION Vz
   FUNCTION Vp(r)
@@ -31,6 +33,8 @@ CONTAINS
         Vp = 0
       CASE(11)
         Vp = Vp0+epsVp*r+eps*r**2
+      CASE(12)
+        Vp = Vp0
     ENDSELECT
     RETURN
   END FUNCTION Vp

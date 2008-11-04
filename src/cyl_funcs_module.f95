@@ -46,7 +46,7 @@ CONTAINS
         rho = P(r)*rho0 !for Appert Homogeneous Plasma
       CASE(2,10)
         rho = rho0 * (1-eps*(r**2/ar**2))
-      CASE(3:4,6:9)
+      CASE(3:4,6:9,12)
         rho = rho0
       CASE(5)
         rho = P(r)*rho0
@@ -73,7 +73,7 @@ CONTAINS
         Bz = 0
       CASE(9)
         Bz = sqrt(2.0)*sqrt(Bt0**2*(2*ar**2-r**2))/ar
-      CASE(10)
+      CASE(10,12)
         Bz = sqrt((Bz0**2-2*p0+2*Bt0**2)*ar**2+2*(p0-Bt0**2)*r**2)/ar
       CASE(11)
         Bz = sqrt(2.0)*sqrt(0.1D1/gamma*P0)*(1.-Bz0*r**2)
@@ -97,7 +97,7 @@ CONTAINS
         & /ar**2*exp(-r**2/ar**2)
       CASE(9)
         Bz_prime = -sqrt(2.0)*(Bt0**2*(2*ar**2-r**2))**(-.5)/ar*Bt0**2*r
-      CASE(10)
+      CASE(10,12)
         Bz_prime = 2*r*(p0-Bt0**2)*(ar**2*Bz0**2-2*ar**2*p0+2*ar**2*Bt0**2+&
         & 2*r**2*p0-2*r**2*Bt0**2)**(-0.5)/ar
       CASE(11)
@@ -113,7 +113,7 @@ CONTAINS
     SELECT CASE (equilib)
       CASE(1:2,7)
         Bt = 0
-      CASE(3,5,9,10)
+      CASE(3,5,9,10,12)
         Bt = Bt0*r/ar
       CASE(4)
         DO i=1,size(r)
@@ -136,7 +136,7 @@ CONTAINS
     SELECT CASE (equilib)
       CASE(1:2)
         Bt_prime = 0
-      CASE(3,5,9,10)
+      CASE(3,5,9,10,12)
         Bt_prime = Bt0/ar
       CASE(4)
         DO i=1,size(r)
@@ -193,6 +193,8 @@ CONTAINS
         & +0.2D1/0.3D1*Vp0*epsVp*r**3&
         & +(-Bt0**2/4+Vp0**2/2+2/gamma*P0*Bz0)*r**2&
         & -0.1D1/gamma*P0+P1
+      CASE(12)
+        P = -(1-r**2/ar**2)/2.*(ar**2*Vp0**2-2.*P0)
     ENDSELECT
     RETURN
   END FUNCTION P
@@ -227,6 +229,8 @@ CONTAINS
         & +5*(0.2D1/0.5D1*Vp0*epsVp*(rho0-1)+0.2D1/0.5D1*epsVp*eps)*r**4&
         & +4*(Vp0**2*(rho0-1)/4+Vp0*eps/2+epsVp**2/4+0.3D1/0.16D2*Bt0**2*lambd-0.1D1/Gamma*P0*Bz0**2)*r**3&
         & +2*Vp0*epsVp*r**2+2*(-Bt0**2/4+Vp0**2/2+2/Gamma*P0*Bz0)*r
+      CASE(12)
+        P_prime = (ar**2*Vp0**2-2*P0)*r/ar**2
     ENDSELECT
     RETURN
   END FUNCTION P_prime
@@ -264,6 +268,7 @@ CONTAINS
     INTEGER :: rs_ind, ng
     ng = size(grid)    
     IF (rs.le.0 .or. rs.ge.ar ) THEN
+      new_grid(1) = new_grid(2)/1000.0
       new_grid = grid
       RETURN
     ENDIF
@@ -278,7 +283,7 @@ CONTAINS
       new_grid(rs_ind+1:) = (ar-rs)*((grid(rs_ind+1:)-rs)/(ar-rs))**alpha+rs
     ENDIF
     new_grid(1) = new_grid(2)/1000.0
-    write(*,*) 'new_grid = ', new_grid
+    !write(*,*) 'new_grid = ', new_grid
     RETURN    
   END FUNCTION new_grid
   SUBROUTINE calc_rs(grid)

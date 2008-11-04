@@ -138,7 +138,7 @@ CONTAINS
         int_mod_lin_func = 0
       CASE(3)
         int_mod_lin_func = r**3*Bt0/Bz0/3./ar
-      CASE(10)
+      CASE(10,12)
         int_mod_lin_func = &
         & Bt0/4.*ar**2*(Bz0**2+2*(Bt0**2-p0))/(Bt0**2-p0)/sqrt(2*(Bt0**2-p0))*&
         &   atan(sqrt(2*(Bt0**2-p0))*r/&

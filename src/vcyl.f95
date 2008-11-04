@@ -379,6 +379,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     DEALLOCATE(grid,phi,psi,chi,A,B,C,D,VR,VL,ALPHAI,ALPHAR,BETA,RWORK,WORK) 
   END SUBROUTINE bspline_deriv_sa
   SUBROUTINE linear_const()
+    USE vcyl_matrix_module
     IMPLICIT NONE
     TYPE(linear),   DIMENSION(:), ALLOCATABLE :: phi1, phi4
     TYPE(linear),   DIMENSION(:), ALLOCATABLE :: phi2, phi5
@@ -417,7 +418,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL init(phi3(2:N),grid(1:N-1),p3=grid(2:N))
     IF(upper(1).eq.N) THEN
       CALL init(phi1(N),grid(N),p2=grid(N-1))
-      !CALL init(phi3(N),grid(N-1),p3=grid(N))
     ENDIF
     phi2 = phi1
     phi4 = phi1
@@ -779,7 +779,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       
     CALL cpu_time(at2)
     at = at+at2-at1
-    IF(verbose) THEN
+    IF(verbose.and.(num.eq.fin)) THEN
       OPEN(1,status='replace',file='A.txt')
       WRITE (1,*) 'A='
       WRITE (1,FMT) transpose(A)
@@ -829,8 +829,13 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     TYPE(constant), DIMENSION(:), ALLOCATABLE :: phi3, phi6
     COMPLEX(r8), DIMENSION(:,:), ALLOCATABLE :: A, B, C, D, VR, VL
     COMPLEX(r8), DIMENSION(:), ALLOCATABLE :: ALPHA, BETA,  WORK
+    REAL(r8) :: xi1pNa, xi2pNa, xi1Na, xi2Na, xi3Na,xi1pN1a,xi2pN1a
     INTEGER :: lower1, upper1
     WRITE (*,*) '************Using linear_const_rw**************'
+    IF (P0>Bt0**2) THEN
+      WRITE (0,*) 'Error: Skipping run', num,'because P0>Bt0**2 results in an invalid equilibrium for field-aligned coordinates.'
+      RETURN
+    ENDIF
     vcyl = .true.
     lower1 = 1
     upper1 = N-1
@@ -846,7 +851,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
   ! We're going to add 1 to NN for the coefficient C2 of the vacuum solution
     NN = size(phi1)+size(phi2)+size(phi3)+size(phi4)+size(phi5)+size(phi6)+1
     LWORK=10*NN
-    ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(LWORK))
+    ALLOCATE(A(NN,NN),B(NN,NN),C(NN,NN),D(NN,NN),VR(NN,NN),VL(1,NN),ALPHA(NN),BETA(NN),RWORK(8*NN),WORK(10*NN))
     LDVR = NN
   ! Initialize the grid
     grid = (/ (i*ar/(N-1), i=0,N-1) /)
@@ -860,7 +865,6 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL init(phi3(2:N),grid(1:N-1),p3=grid(2:N))
     IF(upper(1).eq.N) THEN
       CALL init(phi1(N),grid(N),p2=grid(N-1))
-      !CALL init(phi3(N),grid(N-1),p3=grid(N))
     ENDIF
     phi2 = phi1
     phi4 = phi1
@@ -877,7 +881,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
       WRITE (*,'(a,g)') 'Ka=',Ka,'La=',La,'Kb=',Kb,'Lb=',Lb,'Kadot=',Kadot,'Ladot=',Ladot,'Kbdot=',Kbdot,'Lbdot=',Lbdot
       WRITE (*,'(a,g)') 'BCB1=',BCB1((/ar/)),'BCB1nw=',BCB1nw((/ar/)),'BCB1cw=',BCB1cw((/ar/))
       WRITE (*,'(a,g)') 'a=',ar,'val(phi1(N),a)=',val(phi1(N),(/ar/)), 'phi1(N)%xj-a=',phi1(N)%xj-ar
-      write (*,'(a,g)') 'NN=',NN
+      WRITE (*,'(a,g)') 'NN=',NN
     ENDIF
   ! Set some format specifiers for outputting matrices
     WRITE(FMT,'(a,I,a)') '(',NN,'G13.5)'
