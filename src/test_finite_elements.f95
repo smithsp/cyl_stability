@@ -5,7 +5,7 @@ PROGRAM test_finite_elements
   USE cyl_matrix_module
   USE sort_module
   IMPLICIT NONE
-  INTEGER, PARAMETER :: N=20
+  INTEGER, PARAMETER :: N=140
   TYPE(linear), DIMENSION(N) :: phi,phi_mod
   TYPE(constant), DIMENSION(N-1) :: psi, chi
   TYPE(bspline), DIMENSION(0:N+1) :: xi, xi_deriv
@@ -36,8 +36,11 @@ PROGRAM test_finite_elements
   Bt0 = 1.
   Bz0 = 15
   equilib=10
+  alpha = 0
+  rs=.9
   grid = (/ (i*ar/real(N-1), i=0,N-1) /)
   grid = new_grid(grid)
+  WRITE (0,*) 'new_grid=',grid
   grid(1) = grid(2)/1000.0
   alpha = 1.0
   rs = .77

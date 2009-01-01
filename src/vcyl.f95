@@ -863,6 +863,7 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     CALL init(phi1(1),grid(1),p3=grid(2))
     CALL init(phi1(2:N-1),grid(2:N-1),p2=grid(1:N-2),p3=grid(3:N))
     CALL init(phi3(2:N),grid(1:N-1),p3=grid(2:N))
+    phi3(1)=phi3(2)
     IF(upper(1).eq.N) THEN
       CALL init(phi1(N),grid(N),p2=grid(N-1))
     ENDIF
@@ -2022,8 +2023,8 @@ SUBROUTINE linear_const_sa() !sa stands for self adjoint
     pp = P_prime(grid)
     bzp = Bz_prime(grid)
     btp = Bt_prime(grid)
-    safety(1) = 0.
     safety(2:N) = q(grid(2:N))
+    safety(1) = safety(2)
     WRITE(filename,'(a,i0,a)') 'equilibria_vcyl/',num,'.txt'
     IF(.not.vcyl) THEN
       pv = 0.

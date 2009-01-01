@@ -5,7 +5,7 @@ MODULE cyl_funcs_module
   INTEGER :: mt, equilib, ifail  !m_theta, choice of equilibrium configuration, 
   REAL(r8) :: kz, gamma, ar, br, rho0, eps, Bz0, Bt0, s2, P0, P1,lambd !ar is the radius of the plasma, br is the radius of the wall
   REAL(r8) :: Vz0, epsVz, Vp0, epsVp
-  REAL(r8) :: rs, alpha ! These are parameters for localizing the grid around rs
+  REAL(r8) :: rs, alpha,w, maxw, minw ! These are parameters for localizing the grid around rs
   REAL(r8), PARAMETER, DIMENSION(2) :: gamma_mt_1 = (/1.841183781,3.054236928 /)
 
 CONTAINS
@@ -267,25 +267,46 @@ CONTAINS
     REAL(r8), DIMENSION(size(grid)) :: new_grid
     INTEGER :: rs_ind, ng
     ng = size(grid)    
-    IF (rs.le.0 .or. rs.ge.ar ) THEN
+    IF (rs.lt.0 .or. rs.gt.ar.or.alpha.eq.0 ) THEN
       new_grid(1) = new_grid(2)/1000.0
       new_grid = grid
       RETURN
     ENDIF
-    rs_ind = minval(minloc(abs(grid-rs)))
-    IF (rs-grid(rs_ind)<0) THEN
-      rs_ind=  rs_ind-1
-    ENDIF
-    IF (rs.ne.0) THEN
-      new_grid(1:rs_ind) = -rs*((rs-grid(1:rs_ind))/rs)**alpha+rs
-    ENDIF
-    IF (rs.ne.ar) THEN
-      new_grid(rs_ind+1:) = (ar-rs)*((grid(rs_ind+1:)-rs)/(ar-rs))**alpha+rs
-    ENDIF
-    new_grid(1) = new_grid(2)/1000.0
-    !write(*,*) 'new_grid = ', new_grid
+    minw=0
+    maxw=10.
+    new_grid = findw(ng)
     RETURN    
   END FUNCTION new_grid
+  FUNCTION localize(x)
+    REAL(r8), INTENT(IN) :: x
+    REAL(r8) :: localize
+    localize = alpha*w/((x-rs)**2+w)
+    RETURN 
+  END FUNCTION localize
+  RECURSIVE FUNCTION findw(ngrid) RESULT(new_grid)
+    INTEGER, INTENT(IN) :: ngrid
+    REAL(r8), DIMENSION(ngrid) :: new_grid
+    REAL(r8), DIMENSION(ngrid+10) :: grid
+    INTEGER :: i, ng
+    w = (minw+maxw)/2.
+    grid(1) = 0.
+    DO i=2,size(grid)
+      grid(i) = grid(i-1)+1./((localize(grid(i-1))+1./(alpha+1.))*ngrid)
+    ENDDO
+    ng = count(grid<=ar)
+    IF (ng==ngrid) THEN
+      new_grid = grid(1:ngrid)
+      new_grid(1) = new_grid(2)/1000.0
+      new_grid(ngrid) = ar
+      RETURN
+    ELSEIF (ng<ngrid) THEN
+      minw = w
+      new_grid = findw(ngrid)
+    ELSEIF (ng>ngrid) THEN
+      maxw = w
+      new_grid = findw(ngrid)
+    ENDIF
+  END FUNCTION findw
   SUBROUTINE calc_rs(grid)
     REAL(r8), DIMENSION(:), INTENT(IN) :: grid
     REAL(r8), DIMENSION(size(grid)-1) :: y

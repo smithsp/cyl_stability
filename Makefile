@@ -1,5 +1,5 @@
 #FC=/usr/pppl/lf64x/lf6480/bin/lfc
-FCOPTS=--dbl
+FCOPTS=--dbl #-g
 #LAPACK=/usr/pppl/lff95/6.20c/lapack-3.0
 LOCAL=local
 FEMOD=finite_elements_module
@@ -50,8 +50,8 @@ cyl: ${OBJ}
 	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe ${NAG_LIBDIR} ${NAG_LIBS}
 vcyl: ${VOBJ}
 	${FC} ${VOBJ} ${FCOPTS} -o vcyl.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
-testfe: local.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o ${TESTFE}.o sort_module.o
-	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o sort_module.o ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS} ${NAG_LIBDIR} ${NAG_LIBS} -o testfe.exe
+testfe: local.o sort_module.o ${CYLFUNCS}.o ${FEMOD}.o ${CYLMAT}.o ${TESTFE}.o 
+	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o sort_module.o ${CYLMAT}.o  ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS} ${NAG_LIBDIR} ${NAG_LIBS} -o testfe.exe
 testnag: local.o test_nag.o
 	${FC} test_nag.o ${FCOPTS} ${MODDIR} ${NAG_LIBDIR} ${NAG_LIBS}  -o testnag.exe 
 plot_eq: ${EQOBJ} plot_equilibrium.o
