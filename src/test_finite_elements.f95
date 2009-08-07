@@ -5,7 +5,7 @@ PROGRAM test_finite_elements
   USE cyl_matrix_module
   USE sort_module
   IMPLICIT NONE
-  INTEGER, PARAMETER :: N=140
+  INTEGER, PARAMETER :: N=41
   TYPE(linear), DIMENSION(N) :: phi,phi_mod
   TYPE(constant), DIMENSION(N-1) :: psi, chi
   TYPE(bspline), DIMENSION(0:N+1) :: xi, xi_deriv
@@ -27,28 +27,28 @@ PROGRAM test_finite_elements
   gamma = 5./3.
   mt = 2
   eps = 0.
-  Bz0 = 15.
 !  equilib = 4
   P0  = .0
   P1 = .50
   lambd = 2.
   rho0 = 1.
-  Bt0 = 1.
-  Bz0 = 15
-  equilib=10
+  Bt0 = .34
+  Bz0 = 10
+  equilib=13
   alpha = 0
   rs=.9
   grid = (/ (i*ar/real(N-1), i=0,N-1) /)
   grid = new_grid(grid)
-  WRITE (0,*) 'new_grid=',grid
+  !WRITE (0,*) 'new_grid=',grid
   grid(1) = grid(2)/1000.0
-  alpha = 1.0
+  alpha = 0.0
   rs = .77
   !kB = .true.
   CALL calc_rs(grid)
   !grid = new_grid(grid)
   WRITE (*,*) 'rs = ', rs
-  WRITE (*,*) sort(grid)
+  WRITE (*,*) 'grid'
+  WRITE (*,'(g)') sort(grid)
   !STOP
   
   x = (/( i*(maxval(grid)-minval(grid))/real(nx-1) + minval(grid), i=0,nx-1)/)
@@ -71,6 +71,11 @@ PROGRAM test_finite_elements
   phi_mod = phi
   phi_mod%mod_lin = .true.
   CALL linear_int_fac(phi_mod)
+  WRITE (*,'(A,2G)') 'phi_mod(1)%int_fac=',phi_mod(1)%int_fac
+  do i=1,N 
+    write(*,'(a,i0,a,g)') 'val(phi_mod(',i,'),0.1)=',val(phi_mod(i),(/0.1/))
+  enddo
+ ! WRITE (*,*) 'val(phi_mod,0.1)=',(/ (linear_val(phi_mod(i),0.1),  i=1,N) /)
   xi1 = xi(1)*xi(0)%C(1)/xi(1)%C(1)-xi(0)
   xi1%deriv = .true.
   xi0 = shift_spline(xi_deriv(2))
@@ -138,6 +143,7 @@ PROGRAM test_finite_elements
   WRITE(*,*) 'val(xi_deriv(N),ar)=',val(xi_deriv(N),ar), 'val(xi(N+1),ar)=', val(xi(N+1),ar), 'val(xi_deriv(N+1),ar)=',val(xi_deriv(N+1),ar)
   
   OPEN (1, status='replace',file='finite_element_values.txt')
+  WRITE (1,*) '#',N
   WRITE (1,'(31a20)') &
   & '#x value', 'Left constant', 'Right constant',&
   & 'Left Linear', 'Middle Linear', 'Right Linear',&
@@ -175,6 +181,7 @@ PROGRAM test_finite_elements
   WRITE (0,*) (val_prime(phi_mod(N),(/ar/))),(val_prime(phi_mod(N-1),(/0.,ar/))),ar-phi_mod(N-1)%xj,phi_mod(N-1)%dx(2),ar-phi_mod(N)%xj
   
   verbose = .true.
+  WRITE (*,*) 'phi_mod(2)=',phi_mod(2)
   WRITE (*,*) 'val(phi_mod(2),(/0,.01,.02,.03/)=',val(phi_mod(2),(/0.,.01,.02,.03/)), 'sum(val(phi_mod(2),(/0,.01,.02,.03/)))=',sum(val(phi_mod(2),(/0.,.01,.02,.03/)))
   WRITE (*,*) 'int_func(phi_mod(2),phi_mod(2),x2)=',int_func(phi_mod(2),phi_mod(2),x2)
   WRITE (*,*) 'int_func(phi(2),phi(2),x2)=',int_func(phi(2),phi(2),x2)

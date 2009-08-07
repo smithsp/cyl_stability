@@ -4,6 +4,7 @@ PROGRAM cyl
   USE vcyl_matrix_module
   USE finite_elements_module
   USE sort_module
+  USE mpi
   INTEGER :: ref, start, fin, N, num, BCrow
   LOGICAL :: spline, phi2_deriv, phi3_deriv, vcyl
   REAL(r8) :: log_Vz0,  nq
@@ -15,11 +16,15 @@ PROGRAM cyl
   REAL(r8), DIMENSION(:,:), ALLOCATABLE :: A, B, C, D, VR
   REAL(r8), DIMENSION(:,:), ALLOCATABLE :: VL
   CHARACTER(LEN=30) :: FMT, FMTR
-  INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9)
+  INTEGER :: LDVL=1, LWORK, LDVR, lower(9), upper(9), ierr, myid, numprocs, rc
   LOGICAL :: Lend0, Evecs
   
   NAMELIST /control_params/  ref, start, fin, verbose
   NAMELIST /cyl_params/ equilib, N, BCrow, kz, mt, ar, br, tw, gamma, Lend0, Evecs, spline, alpha, rs, epsilo, rho0, eps, P0, P1, s2, Bz0, Bt0, lambd, Vz0, epsVz, Vp0, epsVp, epskVa, nu, kappa
+  call MPI_INIT( ierr )
+  call MPI_COMM_RANK( MPI_COMM_WORLD, myid, ierr )
+  call MPI_COMM_SIZE( MPI_COMM_WORLD, numprocs, ierr )
+  print *, 'Process ', myid, ' of ', numprocs, ' is alive'
   spline = .false.
   verbose = .false.
   phi2_deriv = .true.
@@ -36,7 +41,12 @@ PROGRAM cyl
   READ(1,nml=control_params)
   CLOSE(1)
   WRITE(*,nml=control_params) 
-  IF (ref.ne.start) THEN
+  WRITE(filename,'(a,i0,a)') 'input/',ref,'.in'
+  WRITE(*,*)  'Inputting parameters from ', filename
+  OPEN(1,file=filename,status='old',form='formatted')
+  READ(1,nml=cyl_params)
+  CLOSE(1)
+  IF ((ref.ne.start).and.(numprocs.eq.1).and.(start.ne.fin)) THEN
     num = ref
     WRITE(filename,'(a,i0,a)') 'input/',ref,'.in'
     WRITE(*,*)  'Inputting parameters from ', filename
@@ -71,7 +81,7 @@ PROGRAM cyl
     ENDIF
     CALL plot_equilibrium  
   ENDIF
-  DO num = start,fin
+  DO num = start+myid,fin,numprocs
     WRITE(filename,'(a,i0,a)') 'input/',num,'.in'
     WRITE(*,*)  'Inputting parameters from ', filename
     OPEN(1,file=filename,status='old',form='formatted')
@@ -110,6 +120,8 @@ PROGRAM cyl
   WRITE (0,*) 'Time taken by EV solver: ',st, 'seconds.'
   WRITE (0,*) 'Time taken to assemble matrices: ',at, 'seconds.'
   WRITE (0,*) 'Time taken to integrate matrix elements: ',it, 'seconds.'
+  CALL MPI_FINALIZE(rc)
+  STOP
 CONTAINS
 SUBROUTINE linear_const_sa() !sa stands for self adjoint
     IMPLICIT NONE

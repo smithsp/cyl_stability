@@ -127,7 +127,12 @@ CONTAINS
     IMPLICIT NONE
     REAL(r8), INTENT(IN), DIMENSION(:) :: r
     REAL(r8), DIMENSION(size(r)) :: mod_lin_func
-    mod_lin_func = Bt(r)*(r)/Bz(r)
+    SELECT CASE (equilib)
+      CASE(1:12)
+        mod_lin_func = Bt(r)*(r)/Bz(r)
+      CASE(13)
+        mod_lin_func = Bt(r)*r/Bz0
+    ENDSELECT
   END FUNCTION mod_lin_func
   FUNCTION int_mod_lin_func(r)
     IMPLICIT NONE
@@ -145,6 +150,11 @@ CONTAINS
         &     sqrt(ar**2*(Bz0**2+2*(Bt0**2-p0))+2*r**2*(p0-Bt0**2))) &
         &+Bt0*r/4./(p0-Bt0**2)*&
         &   sqrt(2*r**2*(p0-Bt0**2)+ar**2*(Bz0**2+2*(Bt0**2-p0)))
+      CASE(13)
+        int_mod_lin_func = -Bt0/48./ar**4/Bz0&
+                            &*(15*ar**6*asin(r/ar)-48*ar**5*r&
+                              &+sqrt(ar**2-r**2)*r&
+                                &*(33*ar**4-26*ar**2*r**2+8*r**4))
     ENDSELECT
     
   END FUNCTION int_mod_lin_func

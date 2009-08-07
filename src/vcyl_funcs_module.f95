@@ -2,7 +2,7 @@ MODULE vcyl_funcs_module
   USE local
   USE cyl_funcs_module
   IMPLICIT NONE
-  REAL(r8) :: Kbdot, Lbdot, Kb, Lb, Kadot, Ladot, Ka, La, tw
+  REAL(r8) :: Kbdot, Lbdot, Kb, Lb, Kadot, Ladot, Ka, La, tw, kVa, epskVa, kappa
   REAL(r8) :: BCB11a, BCB11nw, BCB11cw
   REAL(r8) :: BCA25aa, BCB21aa, BCB21ac, BCB22aa, BCB22ac, BCB23a, BCB24a, BCB25aa, BCB25ac
 CONTAINS
@@ -11,7 +11,7 @@ CONTAINS
     REAL(r8), INTENT(IN) :: r
     REAL(r8) :: Vz
     SELECT CASE (equilib)
-      CASE(1:10)
+      CASE(1:10,13)
         Vz = Vz0*(1-epsVz*r**2/ar**2)
       CASE(11)
         Vz = 0
@@ -29,7 +29,7 @@ CONTAINS
     SELECT CASE (equilib)
       CASE(1:2)
         Vp = 0
-      CASE(3:10)
+      CASE(3:10,13)
         Vp = 0
       CASE(11)
         Vp = Vp0+epsVp*r+eps*r**2
@@ -54,6 +54,7 @@ CONTAINS
     INTEGER :: nz, ifail
     REAL(r8), DIMENSION(1) :: a
     a = ar
+    kVa = epskVa*minval(kV(a))
     ifail = 0
     CALL s18dcf(real(abs(mt)  ,r8),cmplx(kz*ar,0,r8),1,'U',res,nz,ifail)
     Ka = REAL(res(1))

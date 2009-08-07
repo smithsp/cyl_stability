@@ -1,4 +1,5 @@
-#FC=/usr/pppl/lf64x/lf6480/bin/lfc
+FC=/usr/pppl/lf64x/lf6480/bin/lfc
+FCpar=/usr/pppl/lff95/8.x86_64-pkgs/mpich-1.2.7p1.x86_64/bin/mpif90
 FCOPTS=--dbl #-g
 #LAPACK=/usr/pppl/lff95/6.20c/lapack-3.0
 LOCAL=local
@@ -17,6 +18,7 @@ OUT=model.exe
 TESTFE=test_finite_elements
 OBJ=local.o sort_module.o ${FEMOD}.o ${CYLFUNCS}.o ${CYLMAT}.o cyl.o
 VOBJ=local.o sort_module.o ${CYLFUNCS}.o ${FEMOD}.o  ${VCYLFUNCS}.o ${CYLMAT}.o ${VCYLMAT}.o vcyl.o
+VPOBJ=local.o sort_module.o ${CYLFUNCS}.o ${FEMOD}.o  ${VCYLFUNCS}.o ${CYLMAT}.o ${VCYLMAT}.o vcyl_parallel.o
 EQOBJ=local.o sort_module.o ${FEMOD}.o ${VCYLMAT}.o 
 SRCDIR=src
 
@@ -38,6 +40,8 @@ ${TESTFE}.o: ${SRCDIR}/${TESTFE}.f95
 	${FC} $? ${FCOPTS} -c
 vcyl.o: ${SRCDIR}/vcyl.f95
 	${FC} $? ${FCOPTS} -c ${NAG_LIBDIR} ${NAG_LIBS}
+vcyl_parallel.o: ${SRCDIR}/vcyl_parallel.f95
+	${FCpar} $? ${FCOPTS} -c ${NAG_LIBDIR} ${NAG_LIBS}
 cyl.o:  ${SRCDIR}/cyl.f95
 	${FC} $? ${FCOPTS} -c
 test_nag.o: ${SRCDIR}/test_nag.f95
@@ -50,6 +54,8 @@ cyl: ${OBJ}
 	${FC} ${OBJ} ${FCOPTS}  ${LIBDIR} ${LIBS} -o cyl.exe ${NAG_LIBDIR} ${NAG_LIBS}
 vcyl: ${VOBJ}
 	${FC} ${VOBJ} ${FCOPTS} -o vcyl.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
+vcylP: ${VPOBJ}
+	${FCpar} ${VPOBJ} ${FCOPTS} -o vcyl_parallel.exe  ${LIBDIR} ${LIBS}  ${NAG_LIBDIR} ${NAG_LIBS}
 testfe: local.o sort_module.o ${CYLFUNCS}.o ${FEMOD}.o ${CYLMAT}.o ${TESTFE}.o 
 	${FC} local.o ${FEMOD}.o ${CYLFUNCS}.o sort_module.o ${CYLMAT}.o  ${TESTFE}.o ${FCOPTS} ${LIBDIR} ${LIBS} ${NAG_LIBDIR} ${NAG_LIBS} -o testfe.exe
 testnag: local.o test_nag.o

@@ -1,0 +1,300 @@
+\documentclass[letterpaper]{article}
+\usepackage{amsmath}
+\usepackage[sort&compress]{natbib}
+\usepackage{short}
+\newcommand{\ttt}[1]{\texttt{#1}}
+\newcommand{\typ}[1]{\ttt{<#1>}}
+\newcommand{\typi}{\typ{int}}
+\newcommand{\typr}{\typ{real}}
+\newcommand{\tttr}[1]{\ttt{#1}=\typr}
+\newcommand{\ttti}[1]{\ttt{#1}=\typi}
+\bibliographystyle{unsrtnat}
+\bibpunct{}{}{,}{s}{,}{,}
+\title{Documentation for program bearing cvs tag \ttt{fa\_x}}
+\author{Sterling Smith}
+\date{\today}
+\begin{document}
+\maketitle
+\section{\ttt{vcyl.exe} dependencies}
+The \ttt{vcyl.exe} executable needs several folders (see Table \ref{folders}) and several files (see Table \ref{files}) to exist.
+\begin{table}[h]
+  \begin{tabular}{|c|p{3.3in}|}
+    \hline
+    \multicolumn{2}{|c|}{Folders} \\
+    \hline
+    \ttt{input} & Holds the input (\ttt{\#.in}) files that determine the parameters for a given run. \\
+    \hline
+    \ttt{output\_vcyl} & Holds the output (\ttt{\#.dat, \#.evals, \#.[1-3], \#.grid}) files from a given run \\
+    \hline
+    \ttt{equilibria\_vcyl} & Holds the output equilibria data files (\ttt{\#.txt}) \\
+    \hline
+  \end{tabular}
+  \caption{\ttt{vcyl.exe} needs these folders to exist.\label{folders}}
+\end{table}
+\begin{table}
+  \begin{tabular}{|c|l|p{2.3in}|}
+    \hline
+    \multicolumn{3}{|c|}{Files} \\
+    \hline
+    \ttt{control\_params.in} &\ttt{\&control\_params}& A FORTRAN namelist input file   \\
+    \cline{2-3}
+    & \ttt{ref}=\typ{int} & reference run number, whose parameters are loaded first  \\
+    & \ttt{start}=\typ{int} & starting run number \\
+    & \ttt{fin}=\typ{int} & ending run number \\
+    & \ttt{verbose}=\ttt{T},\ttt{F} & Determines if equilibrium data, numerical integration convergence, and A \& B matrices are output.  \\
+    \hline
+    \ttt{input/\#.in} & \ttt{\&cyl\_params} & A FORTRAN namelist input file\\
+    \cline{2-3}
+    & \ttt{N}=\typi & Number of grid points\\
+    & \ttt{kz}=\typr & Axial ($z$) wavenumber\\
+    & \ttt{mt}=\typi & Azimuthal ($\theta$) mode number \\
+    & \ttt{ar}=\typr & Minor radius of plasma \\
+    & \tttr{br} & Radius of resistive wall; If $\ttt{br}\le\ttt{ar}$, use fixed BC.\\
+    & \tttr{tw} & Time constant of the resistive wall \\
+    & \tttr{gamma} & Ratio of specific heats (5/3) \\
+    & \ttt{Lend0}=\ttt{T}, \ttt{F} & If $|\ttt{mt}|=1$, dictates $\xi_r(0)=0$. \\ 
+    & \ttt{Evecs}=\ttt{T}, \ttt{F} & Compute and output evecs \\ 
+    & \tttr{alpha} & Factor used in grid packing. \\ 
+    & \tttr{rs} & Radial location of grid packing. \\ 
+    & \tttr{epsilo} & Numerical integration convergence \\
+    & \ttt{equilib}=\typi & Equilibrium configuration \\
+    & \ttt{spline}=\ttt{T}, \ttt{F} & No effect for field-aligned (fa) coordinates \\
+    & \tttr{epskVa} & Solve for $\bar{\omega}$ where \mbox{$\bar{\omega}=\omega-\mathbf{k\cdot V}(a)$} \\
+    & \tttr{nu} & Coefficient on fast mode damping \\
+    & \tttr{kappa} & Coefficient of parallel viscosity \\
+    \cline{2-3} 
+    & \parbox[t]{1in}{\tttr{rho0} \\ \tttr{eps} \\ \tttr{P0} \\ \tttr{P1} \\ \tttr{s2} \\ \tttr{Bz0} \\ \tttr{Bt0} \\ \tttr{lambd} \\ \tttr{Vz0} \\ \tttr{epsVz} \\ \tttr{Vp0} \\ \tttr{epsVp} }& Various parameters which have different meanings for different values of \ttt{equilib}, see Section \ref{equilib}. \\ 
+    \cline{2-3}
+    & \parbox[t]{1in}{\ttt{BCrow}=\typi} & Obselete \\
+    \hline
+  \end{tabular}
+  \caption{Description of the input files that must exist for \ttt{vcyl.exe} to run.\label{files}}
+\end{table}
+\section{Equilibria}\label{equilib}
+All of the following equilibria meet the equilibrium condition in cylindrical coordinates
+\begin{equation}
+ \left (p+\frac{B^2}{2}\right)'=\rho r \Omega-\frac{B_{\theta}^2}{r}
+\end{equation}
+where $'\equiv \frac{\texttt{d}}{\texttt{d}r}$ and $\Omega$ is related to the equilibrium velocity, $\mathbf{V}=\Omega r \hat{\theta}+V_z \hat{z}$.  The axial velocity, $V_z$, doesn't affect the equilibrium (which is not true in toroidal systems), so it will have the form
+\begin{equation}
+V_z = \texttt{Vz0}\left ( 1-\texttt{epsVz}\frac{r^2}{a^2} \right )
+\end{equation}
+unless otherwise indicated.  Also, $\Omega=0$ for the first 10 equilibria.
+
+\subsection{\ttt{equilib} = 1}
+\citet{Appert1975} started with a homogeneous plasma to test their approach to using finite elements. 
+\begin{equation}
+\rho=\texttt{rho0} \frac{\texttt{s2} (\texttt{Bz0})^2}{\gamma} \quad p=\frac{\texttt{s2} (\texttt{Bz0})^2}{\gamma} \quad B_z=\texttt{Bz0} \quad B_{\theta}=0 
+\end{equation} 
+
+\subsection{\ttt{equilib} = 2}
+\citet{Appert1975} introduced an inhomogeneity in the density to see how their approach did with resonant surfaces.
+\begin{equation}
+\rho=\texttt{rho0} (1-\texttt{eps}\frac{r^2}{a^2}) \quad p=\frac{\texttt{s2} (\texttt{Bz0})^2}{\gamma} \quad B_z=\texttt{Bz0} \quad B_{\theta}=0 
+\end{equation}
+
+\subsection{\ttt{equilib} = 3}
+\citet{Chance1977} introduced a constant current equilibrium.  
+\begin{equation}
+\rho=\texttt{rho0} \quad p = \texttt{Bt0}^2 \left (1-\frac{r^2}{a^2}\right ) \quad B_z = \texttt{Bz0} \quad B_{\theta}=\texttt{Bt0}\frac{r}{a}
+\end{equation}
+
+\subsection{\ttt{equilib} = 4}
+\citet{Bondeson1987} used an equilibrium based on Bessel functions.
+\begin{equation}
+\rho=\texttt{rho0} \quad p = \texttt{P0}+\frac{\texttt{P1}}{2} J_0^2(\lambda r) \quad B_z = \sqrt{1-\texttt{P1}} J_0(\lambda r) \quad B_{\theta}=J_1(\lambda r)
+\end{equation}
+
+\subsection{\ttt{equilib} = 5}
+Based on equilibrium 3, I introduced an equilibrium whose denisty varies like the pressure.
+\begin{equation}
+\rho=\texttt{rho0} p \quad p  = \texttt{Bt0}^2 \left (1-\frac{r^2}{a^2}\right ) \quad B_z = \texttt{Bz0} \quad B_{\theta}=\texttt{Bt0}\frac{r}{a}
+\end{equation}
+
+\subsection{\ttt{equilib} = 6}
+In trying to figure out why I could not reproduce Chance's\cite{Chance1977} results, I tried to see what happened as the current and pressure gradients grew from zero to a finite amount.  
+\begin{equation}
+\rho=\texttt{rho0} \quad p = \texttt{P0} \left (1-\texttt{eps}\frac{r^2}{a^2} \right ) \quad B_z = \texttt{Bz0} \quad B_{\theta}=\frac{r}{a} \sqrt{\texttt{P0}\ \texttt{eps}}
+\end{equation}
+
+\subsection{\ttt{equilib} = 7}
+This is a $\theta$-pinch equilibrium.  Given that I was able to reproduce results for this and the z-pinch, the bug had to be in a term involving the product $B_z B_{\theta}$.  The error was a sign error in B42.
+\begin{equation}
+\rho=\texttt{rho0} \quad p = \texttt{P0} \exp \left (-\frac{r^2}{a^2} \right ) \quad B_z = \left [\texttt{Bz0}^2 -2\texttt{P0}\exp\left ( -\frac{r^2}{a^2}\right) \right ]^{1/2} \quad B_{\theta}=0
+\end{equation}
+
+\subsection{\ttt{equilib} = 8}
+This is a z-pinch.
+\begin{equation}
+\rho=\texttt{rho0} \quad p = \frac{2\texttt{P0}^2\texttt{Bt0}^2}{\left (r^2+\texttt{P0}^2 \right)^2} \quad B_z = 0 \quad B_{\theta}=\frac{2\texttt{Bt0}r}{r^2+\texttt{P0}^2}
+\end{equation}
+
+\subsection{\ttt{equilib} = 9}
+Equilibrium 9 was an attempt at a sheared q profile.  However, it lacked the variability given by \citet{Chance1977}, which is recovered in equilibrium 10. 
+\begin{equation}
+\rho=\texttt{rho0} \quad p = \texttt{P0} \quad B_z = \frac{\texttt{Bt0}\sqrt{2(2a^2-r^2)}}{a} \quad B_{\theta}=\texttt{Bt0}\frac{r}{a}
+\end{equation}
+
+\subsection{\ttt{equilib} = 10}
+This is the variable q shear profile given by \citet{Chance1977} 
+\begin{equation}
+\begin{array}{c}
+\rho=\texttt{rho0} \quad p = \texttt{P0}\left (1-\frac{r^2}{a^2} \right ) \\
+B_z = \frac{\left [ \texttt{Bz0}^2 a^2+2(\texttt{Bt0}^2-\texttt{P0})(a^2-r^2)\right ]^{1/2}}{a} \quad B_{\theta}=\texttt{Bt0}\frac{r}{a}
+\end{array}
+\end{equation}
+
+\subsection{\ttt{equilib} = 11}
+This is the equilibrium of \citet{Wang2004}  Note that the coefficients have different names in Wang; a correspondence chart is given in Table \ref{WangCoeff}.  This equilibrium can also be used to reproduce results of \citet{Nijboer1997b}
+\begin{equation}
+\rho=1+\left ( \texttt{rho0} -1 \right )r^2 \quad 
+B_z = \left ( \frac{2\texttt{P0}}{\gamma}\right )^{1/2}\left ( 1-\texttt{Bz0}r^2\right ) \quad 
+B_{\theta}=\texttt{Bt0}\frac{r}{2}\left (1-\frac{\lambda r^2}{2} \right )
+\end{equation}
+\begin{equation}
+\Omega = \texttt{Vp0}+\texttt{epsVp}r+\texttt{eps}r^2
+\end{equation}
+\begin{equation}
+p = \int \left (\rho r \Omega - \frac{B_{\theta}^2}{r}\right ) \texttt{d}r + \ttt{P1} -\frac{1}{2}(B_z^2+B_{\theta}^2)
+\end{equation}
+\begin{table}
+\begin{tabular}{l|l|l}
+Nijboer & Wang & GuApS \\
+\hline
+1                           & D               & \ttt{rho0}  \\
+$\frac{2}{M_P}$             & $j_{z0}$        & \ttt{Bt0}   \\
+0                           & $ \delta$       & \ttt{lambd} \\
+$\gamma$                    & $\gamma$        & \ttt{gamma} \\
+$\frac{\beta_3^2 \gamma}{2}$ & $\beta_0^{-1}$  & \ttt{P0}  \\
+0                           & $\Gamma$        & \ttt{Bz0}   \\
+1                           & A               & \ttt{Vp0}   \\
+0                           & B               & \ttt{epsVp} \\
+0                           & C               & \ttt{eps}   \\
+$p_0+\frac{\beta_3^2}{2}$   & --              & \ttt{P1}
+\end{tabular}
+\caption{Correspondence table for comparing Nijboer's\cite{Nijboer1997b} and Wang's\cite{Wang2004} coefficients to GuApS coefficients for equilibrium~11.\label{WangCoeff}}
+\end{table}
+\subsection{\ttt{equilib} = 12}
+I modified equilibrium 10 so that there is a poloidal flow offset by a change in the pressure.  The flow is field aligned to try to get rid of spurious unstable fast modes.  It didn't help.  I ended up using an expert solver.
+\begin{equation}
+\begin{array}{c}
+\rho=\texttt{rho0} 
+\quad  p = (1-r^2/a^2)(\ttt{P0}-a^2 \ttt{Vp0}^2/2)\\
+B_z = \dfrac{\left [ \texttt{Bz0}^2 a^2+2(\texttt{Bt0}^2-\texttt{P0})(a^2-r^2)\right ]^{1/2}}{a} 
+\quad B_{\theta}=\texttt{Bt0}\dfrac{r}{a}\\
+V_z=\dfrac{\ttt{Vp0}}{\ttt{Bt0}}\sqrt{a^2(\ttt{Bz0}^2-2\ttt{P0}+2 \ttt{Bt0}^2)+ 2r^2(\ttt{P0}-\ttt{Bt0}^2)}
+\end{array}
+\end{equation}
+\subsection{\ttt{equilib} = 13}
+This is the equilibrium that \citet{Wesson1978} came up with to model a tokamak with nonconstant axial current density $j_z=j_{z0}(1-r^2/a^2)^\nu$, where $\nu=q_a/q_0-1$, and for this equlibrium $\nu=3/2$.
+\begin{equation}
+\begin{array}{c}
+\rho=\ttt{rho0}
+\quad B_\theta=\dfrac{a\ttt{Bt0}}{r}\left[1-\left(1-\dfrac{r^2}{a^2}\right)^{5/2}\right]\\
+p=-(1-\ttt{eps})\left(\dfrac{B_\theta^2}{2}+{\displaystyle\int \dfrac{B_\theta^2}{r}\dd r}+C_p\right)\\
+B_z=\sqrt{2p\dfrac{\ttt{eps}}{1-\ttt{eps}}+\ttt{Bz0}^2}
+\end{array}
+\end{equation}
+where $C_p$ is determined from $p(r=a)=0$.
+
+\section{Grid packing}
+Currently the grid packing only allows one singular location, \ttt{rs}.  The packing is accomplished  by translating the region $0\le r\le \ttt{rs}$ [$\ttt{rs} \le r \le \ttt{ar}$] to (-\ttt{rs},0) [(0,\ttt{ar}-\ttt{rs})] then scaling the region to (0,1), then raising the region to the power \ttt{alpha} then scaling the region to (-\ttt{rs},0) [(0,\ttt{ar}-\ttt{rs})] and then translating the region to (0,\ttt{rs}) [(\ttt{rs},\ttt{ar})].
+\begin{equation}
+new\_grid(r)=\left \{
+\begin{array}{ll}
+-\ttt{rs}\left (\frac{r-\ttt{rs}}{-\ttt{rs}}\right )^{\alpha} + \ttt{rs} & 
+\textrm{if\ } 0\le r\le \ttt{rs} \\
+\left (\ttt{ar}-\ttt{rs} \right) \left (\frac{r-\ttt{rs}}{\ttt{ar}-\ttt{rs}}\right )^{\alpha} + \ttt{rs}& 
+\textrm{if\ } \ttt{rs} \le r \le \ttt{ar}
+\end{array}
+\right .
+\end{equation}
+\section{Output files}
+\subsection{\ttt{equilibria\_vcyl} folder}
+The equilibrium profiles are output to an ASCII file with one profile per column in the order given by Table \ref{equilib.txt}.  
+\begin{table}
+\begin{tabular}{|l|l|l|}
+\hline
+Column Number & Quantity & Description \\
+\hline
+1&$r$ & Radial location \\
+2&$p$ & Pressure \\
+3&$B_z$ & Axial magnetic field \\
+4&$B_{\theta}$ & Azimuthal magnetic field \\
+5&$\rho$ & Mass density \\
+6&$r\Omega$ & Azimuthal bulk flow\\
+7&$V_z$ & Axial bulk flow \\
+8&$q$ & Safety factor \\
+\hline
+\end{tabular}
+\caption{Output columns of the \ttt{equilibria\_vcyl/\#.txt} files.\label{equilib.txt}}
+\end{table}
+As such it is simple to produce plots from this output.
+\subsection{\ttt{output\_vcyl} folder}
+Each run is uniquely described by its run number, which forms the initial part of the filename of both the input and output files, i.e. \ttt{52.in, 52.grid, 52.dat, 52.evecs1, 52.evalsr}.  The first file that should be handled is the \ttt{\#.dat} file. This file is an ASCII file with one entry per line in the order given in Table \ref{dat}.
+\begin{table}
+\begin{tabular}{|l|l|p{2.9in}|}
+\cline{1-1}
+\multicolumn{1}{|l|}{Line Number}\\
+\hline
+\hline
+\multicolumn{3}{|c|}{Strings} \\
+\hline
+1& fe\_type & String indicating cubic spline or linear elements \\
+\hline
+\hline
+\multicolumn{3}{|c|}{Integers} \\
+\hline
+2&\ttt{N} & \\
+3&\ttt{NN} & Number of eigenvalues \\
+4&\ttt{mt} & \\
+5&\ttt{equilib} & \\
+6&\ttt{num} & Run number \\
+7&\ttt{BCrow} & The row that is replaced by the boundary condition (obselete)\\
+\hline
+\hline
+\multicolumn{3}{|c|}{Reals} \\
+\hline
+8&\ttt{epsilo} & \\
+9&\ttt{ta} & Time taken to assemble the \ttt{A} and \ttt{B} matrices \\
+10&\ttt{ts} & Time taken to solve the eigenproblem \\
+11&\ttt{kz} & \\
+12&\ttt{ar} & \\
+13&\ttt{br} & \\
+14&\ttt{tw} & \\
+15&\ttt{rho0} & \\
+16&\ttt{Bz0} & \\
+17&\ttt{Bt0} & \\
+18&\ttt{s2} &  \\
+19&\ttt{eps} & \\
+20&\ttt{P0} & \\
+21&\ttt{P1} & \\
+22&\ttt{lambd} & \\
+23&\ttt{Vz0} & \\
+24&\ttt{epsVz} & \\
+25&\ttt{Vp0} & \\
+26&\ttt{epsVp} & \\
+27&\ttt{rs} & \\
+28&\ttt{alpha} & \\
+29&\ttt{epskVa} & \\
+30&\ttt{nu} & \\
+33&\ttt{kappa} & A value on this line may or may not exist\\
+\hline
+\hline
+\multicolumn{3}{|c|}{Logicals} \\
+\hline
+31&\ttt{Lend0} & \\
+32&\ttt{vcyl} & True or false, describing whether the self-adjoint formulation or the arbitrary velocity formulation was used. \\
+\hline
+\end{tabular}
+\caption{Order of output of parameters in \ttt{output\_vcyl/\#.dat} files.  Missing descriptions are found in the description of the input files (Table \ref{files}).\label{dat}}
+\end{table}
+
+The \ttt{\#.grid} file contains the location of the grid points on a single line in the form \ttt{grid(0), grid(1),  \ldots }  The \ttt{\#.evalsr} [\ttt{\#.evalsi}] file contains the real [imaginary] part of the eigenvalues with one per line.  The \ttt{\#.evec[1-3]} files contain the eigenvectors for the [1-3] projection with one eigenvector per line (whose eigenvalue is found on the same line of the evalsr and evalsi files) where the elements of the eigenvector are separated with a ',' similar to the grid file.  
+\section{\ttt{python} scripts}
+I have written several \ttt{python} scripts to interpret the output.  Of utmost importance is the \ttt{get\_EV.py} file which defines a class, get\_EV, for easily extracting the information from the output files.  If the Gnuplot python bindings have not been installed on your cluster (as they weren't on PPPL's), you can either delete the line that imports Gnuplot, or install it to your local account.  I have written other scripts for automating the production of particular types of plots, which all use Gnuplot.  Also important is the \ttt{finite\_elements.py} file which defines a bspline class that can be used for finding the value of an eigenfunction at a point (since the eigenvector is only the coefficient for a given element).  
+
+A useful script for producing input files is \ttt{create\_input.py}.  It asks you for the \ttt{ref, start}, and \ttt{fin} numbers, and which variable you would like to change.  It then prompts you for the value for that variable for the runs numbered from \ttt{start} to \ttt{fin}.  The script leaves the \ttt{ref} input file untouched, but produces the necessary input files for runs \ttt{start} to \ttt{fin} and the appropriate \ttt{control\_params.in} file.  
+
+\bibliography{/u/spsmith/latex/references}
+\end{document}
